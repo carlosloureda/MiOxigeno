@@ -1,4 +1,4 @@
-# Registro de oxígeno
+# Mi Oxígeno
 
 PWA sin servidor para anotar SpO2, pulso, actividad, flujo y fuente de oxígeno, ver una gráfica y exportar/compartir un CSV. Los datos se guardan solo en el móvil (`localStorage`); no hay backend, analítica ni recursos externos.
 

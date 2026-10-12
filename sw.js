@@ -1,6 +1,6 @@
 // Service worker: caché de los archivos de la app para uso offline.
 // Sube el número de versión al cambiar cualquier archivo.
-var CACHE = 'oxi-cache-v2';
+var CACHE = 'oxi-cache-v3';
 var ASSETS = [
   './',
   './index.html',

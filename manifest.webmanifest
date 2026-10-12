@@ -1,6 +1,6 @@
 {
-  "name": "Registro de oxígeno",
-  "short_name": "Oxígeno",
+  "name": "Mi Oxígeno",
+  "short_name": "Mi Oxígeno",
   "description": "Registro de SpO2, pulso y oxígeno suplementario",
   "lang": "es",
   "start_url": "./index.html",
