@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b5c8a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Oxígeno">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Registro de oxígeno</title>
+</head>
+<body>
+  <main>
+    <!-- ANOTAR -->
+    <section id="tab-anotar" class="tab active">
+      <h1 id="form-title">Nueva medición</h1>
+
+      <label class="field">
+        <span>Fecha y hora</span>
+        <input type="datetime-local" id="f-fecha">
+      </label>
+
+      <div class="field">
+        <span>Actividad</span>
+        <div class="choices" id="f-actividad"></div>
+      </div>
+
+      <div class="field">
+        <span>Oxígeno (SpO2 %)</span>
+        <div class="stepper" data-field="spo2" data-min="50" data-max="100" data-step="1">
+          <button type="button" class="minus" aria-label="Menos">−</button>
+          <output id="v-spo2">94</output>
+          <button type="button" class="plus" aria-label="Más">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span>Pulsaciones (lpm)</span>
+        <div class="stepper" data-field="pulso" data-min="30" data-max="220" data-step="1">
+          <button type="button" class="minus" aria-label="Menos">−</button>
+          <output id="v-pulso">80</output>
+          <button type="button" class="plus" aria-label="Más">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span>Flujo de oxígeno (L/min)</span>
+        <div class="stepper" data-field="flujo" data-min="0" data-max="15" data-step="0.5">
+          <button type="button" class="minus" aria-label="Menos">−</button>
+          <output id="v-flujo">2</output>
+          <button type="button" class="plus" aria-label="Más">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span>Fuente de oxígeno</span>
+        <div class="choices" id="f-fuente"></div>
+      </div>
+
+      <label class="field">
+        <span>Nota (opcional)</span>
+        <input type="text" id="f-nota" maxlength="120" autocomplete="off">
+      </label>
+
+      <div class="actions">
+        <button type="button" id="btn-guardar" class="primary">Guardar</button>
+        <button type="button" id="btn-cancelar" class="secondary" hidden>Cancelar edición</button>
+      </div>
+      <p id="msg" class="msg" role="status"></p>
+    </section>
+
+    <!-- GRÁFICA -->
+    <section id="tab-grafica" class="tab">
+      <h1>Gráfica</h1>
+      <div class="filters">
+        <label>Periodo
+          <select id="g-rango">
+            <option value="1">Últimas 24 h</option>
+            <option value="7" selected>Últimos 7 días</option>
+            <option value="30">Últimos 30 días</option>
+            <option value="0">Todo</option>
+          </select>
+        </label>
+        <label>Actividad
+          <select id="g-actividad"><option value="">Todas</option></select>
+        </label>
+        <label>Fuente
+          <select id="g-fuente"><option value="">Todas</option></select>
+        </label>
+      </div>
+      <div id="chart" class="chart" aria-label="Gráfica de SpO2 y pulsaciones"></div>
+      <div class="legend">
+        <span><i class="dot spo2"></i> SpO2 (%)</span>
+        <span><i class="dot pulso"></i> Pulso (lpm)</span>
+      </div>
+      <div id="stats" class="stats"></div>
+    </section>
+
+    <!-- DATOS -->
+    <section id="tab-datos" class="tab">
+      <h1>Datos</h1>
+      <div class="actions row">
+        <button type="button" id="btn-csv" class="secondary">Descargar CSV</button>
+        <button type="button" id="btn-share" class="primary">Compartir CSV</button>
+      </div>
+      <ul id="lista" class="lista"></ul>
+      <p id="vacio" class="msg" hidden>Todavía no hay mediciones.</p>
+    </section>
+  </main>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" data-tab="anotar" class="active" role="tab">Anotar</button>
+    <button type="button" data-tab="grafica" role="tab">Gráfica</button>
+    <button type="button" data-tab="datos" role="tab">Datos</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
