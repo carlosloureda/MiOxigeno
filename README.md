@@ -2,6 +2,8 @@
 
 PWA sin servidor para anotar SpO2, pulso, actividad, flujo y fuente de oxígeno, ver una gráfica y exportar/compartir un CSV. Los datos se guardan solo en el móvil (`localStorage`); no hay backend, analítica ni recursos externos.
 
+**App publicada (GitHub Pages):** https://carlosloureda.github.io/MiOxigeno/
+
 ## Probar en local
 ```
 python3 -m http.server 8765
