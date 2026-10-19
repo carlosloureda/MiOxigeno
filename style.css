@@ -169,6 +169,7 @@ button.secondary { background: transparent; color: var(--accent); }
 
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
 .lectura .dot { width: 10px; height: 10px; margin-right: 5px; }
+.nw { white-space: nowrap; }
 .stats div {
   background: var(--card);
   border: 2px solid var(--border);

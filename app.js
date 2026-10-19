@@ -352,9 +352,16 @@
   function buildChart(data, m, days, W, H, showX, byAct) {
     var L = 34, R = 8, T = 8, B = showX ? 22 : 8;
     var pw = W - L - R, ph = H - T - B;
-    var t1 = Date.now();
-    var t0 = days ? t1 - days * 86400000 : Math.min.apply(null, data.map(function (r) { return new Date(r.timestamp).getTime(); }));
+    // El eje se ajusta a los datos que hay (no al periodo entero) y siempre incluye el último punto,
+    // aunque tenga la hora en el futuro. Así no se apelmazan a un lado ni se salen del borde.
+    var times = data.map(function (r) { return new Date(r.timestamp).getTime(); });
+    var tmin = Math.min.apply(null, times), tmax = Math.max.apply(null, times);
+    var t1 = Math.max(Date.now(), tmax);
+    var t0 = days ? Math.max(Date.now() - days * 86400000, tmin) : tmin;
     if (t1 - t0 < 3600000) t0 = t1 - 3600000;
+    var margen = (t1 - t0) * 0.04;
+    t0 -= margen;
+    t1 += margen;
     var span = t1 - t0;
     var daily = span > 10 * 86400000;
     var items = daily ? dailyAgg(data, m) : data;
@@ -452,8 +459,17 @@
     });
   }
 
+  // Leyenda de colores de actividad (o la explicación de las barras, en periodos largos).
+  function leyendaHtml(daily) {
+    return daily
+      ? '<span><i style="background:var(--accent);opacity:.5"></i>Barra: rango del día · punto: media</span>'
+      : ACTIVIDADES.map(function (a) {
+        return '<span><i style="background:' + (ACT_COL[a] || '#888780') + '"></i>' + esc(a) + '</span>';
+      }).join('');
+  }
+
   function lecturaHtml(r, titulo) {
-    return '<div class="t">' + titulo + ' · ' + fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + actDotHtml(r.actividad) + esc(r.actividad) +
+    return '<div class="t">' + titulo + ' · ' + fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · <span class="nw">' + actDotHtml(r.actividad) + esc(r.actividad) + '</span>' +
       '</div><div class="v">' + r.spo2 + ' <small>% · ' + r.pulso + ' lpm</small></div>';
   }
 
@@ -471,7 +487,8 @@
     [
       [Math.min.apply(null, spo) + '%', 'SpO2 mínima'],
       [avg.toFixed(1).replace('.', ',') + '%', 'SpO2 media'],
-      [String(data.length), 'Mediciones']
+      // Si el periodo o los filtros dejan fuera alguna, se dice (p. ej. "3 de 4").
+      [data.length === records.length ? String(data.length) : data.length + ' de ' + records.length, 'Mediciones']
     ].forEach(function (s) {
       var div = document.createElement('div');
       var b = document.createElement('b');
@@ -489,6 +506,7 @@
     var data = filtered(), days = parseInt($('g-rango').value, 10);
     var card = $('b-lectura'), keys = ['spo2', 'pulso'];
     keys.forEach(function (k) { $('chart-b-' + k).innerHTML = ''; });
+    $('b-leyenda').innerHTML = '';
     $('stats').innerHTML = '';
 
     if (!data.length) {
@@ -502,11 +520,12 @@
 
     var charts = keys.map(function (k) {
       var box = $('chart-b-' + k), W = Math.max(280, box.clientWidth - 16);
-      var ch = buildChart(data, k, days, W, k === 'pulso' ? 160 : 180, k === 'pulso', false);
+      var ch = buildChart(data, k, days, W, k === 'pulso' ? 160 : 180, k === 'pulso', true);
       box.innerHTML = ch.html;
       return { box: box, ch: ch, k: k };
     });
     var daily = charts[0].ch.daily;
+    $('b-leyenda').innerHTML = leyendaHtml(daily);
     attachScrub(charts, function (bi) {
       card.innerHTML = daily ? diarioHtml(charts[0].ch.items[bi], 'spo2') : lecturaHtml(charts[0].ch.items[bi], 'Medición');
     }, ultima);
@@ -546,11 +565,7 @@
     }
     resumen();
 
-    $('a-leyenda').innerHTML = daily
-      ? '<span><i style="background:var(--accent);opacity:.5"></i>Barra: rango del día · punto: media</span>'
-      : ACTIVIDADES.map(function (a) {
-        return '<span><i style="background:' + (ACT_COL[a] || '#888780') + '"></i>' + esc(a) + '</span>';
-      }).join('');
+    $('a-leyenda').innerHTML = leyendaHtml(daily);
 
     attachScrub(charts, function (bi) {
       if (daily) {
