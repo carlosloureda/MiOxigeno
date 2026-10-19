@@ -128,10 +128,44 @@ button.secondary { background: transparent; color: var(--accent); }
 .chart svg { width: 100%; height: auto; display: block; }
 .chart .empty { padding: 32px 8px; text-align: center; color: var(--muted); }
 
-.legend { display: flex; gap: 16px; margin: 10px 0; font-size: 0.9rem; color: var(--muted); }
-.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
-.dot.spo2 { background: var(--spo2); }
-.dot.pulso { background: var(--pulso); }
+.chart svg { touch-action: pan-y; }
+
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 14px; }
+.seg button {
+  font: inherit;
+  min-height: 52px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.lectura {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  min-height: 92px;
+}
+.lectura .t { font-size: 0.85rem; color: var(--muted); }
+.lectura .v { font-size: 2.4rem; font-weight: 700; line-height: 1.15; }
+.lectura .v small { font-size: 1rem; font-weight: 400; color: var(--muted); }
+.lectura .c { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+.lectura .c div { font-size: 0.8rem; color: var(--muted); }
+.lectura .c b { display: block; font-size: 1.6rem; color: var(--text); }
+.lectura .empty { padding: 12px 0; color: var(--muted); }
+
+.ct { margin: 12px 0 6px; font-size: 0.9rem; color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0; font-size: 0.85rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
 
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stats div {

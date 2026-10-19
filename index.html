@@ -75,6 +75,11 @@
     <!-- GRÁFICA -->
     <section id="tab-grafica" class="tab">
       <h1>Gráfica</h1>
+      <div class="seg" role="group" aria-label="Tipo de vista">
+        <button type="button" id="modo-basica" aria-pressed="true">Básica</button>
+        <button type="button" id="modo-avanzada" aria-pressed="false">Avanzada</button>
+      </div>
+
       <div class="filters">
         <label>Periodo
           <select id="g-rango">
@@ -91,12 +96,26 @@
           <select id="g-fuente"><option value="">Todas</option></select>
         </label>
       </div>
-      <div id="chart" class="chart" aria-label="Gráfica de SpO2 y pulsaciones"></div>
-      <div class="legend">
-        <span><i class="dot spo2"></i> SpO2 (%)</span>
-        <span><i class="dot pulso"></i> Pulso (lpm)</span>
+
+      <div id="g-basica">
+        <div id="b-lectura" class="lectura"></div>
+        <p class="ct">SpO2 (%)</p>
+        <div id="chart-b-spo2" class="chart"></div>
+        <p class="ct">Pulso (lpm)</p>
+        <div id="chart-b-pulso" class="chart"></div>
+        <div id="stats" class="stats"></div>
       </div>
-      <div id="stats" class="stats"></div>
+
+      <div id="g-avanzada" hidden>
+        <div id="a-lectura" class="lectura"></div>
+        <p class="ct">SpO2 (%)</p>
+        <div id="chart-a-spo2" class="chart"></div>
+        <p class="ct">Pulso (lpm)</p>
+        <div id="chart-a-pulso" class="chart"></div>
+        <p class="ct">Flujo de oxígeno (L/min)</p>
+        <div id="chart-a-flujo" class="chart"></div>
+        <div id="a-leyenda" class="legend"></div>
+      </div>
     </section>
 
     <!-- DATOS -->

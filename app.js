@@ -251,6 +251,33 @@
   }
 
   // ---- Gráfica (SVG propio, sin dependencias) ----
+  // Dos vistas: básica (una gráfica de SpO2 y la última medición) y avanzada (SpO2, pulso y flujo
+  // apiladas, con filtros y cursor compartido).
+  var ACT_COL = { Durmiendo: '#7F77DD', Tumbada: '#1D9E75', Sentada: '#888780', WC: '#D85A30', Transporte: '#BA7517' };
+  var METRICAS = {
+    spo2: { nombre: 'SpO2', unidad: '%' },
+    pulso: { nombre: 'Pulso', unidad: 'lpm' },
+    flujo: { nombre: 'Flujo', unidad: 'L/min' }
+  };
+  var MODO_KEY = 'oxi.modo';
+  var modo = loadModo();
+
+  function loadModo() {
+    try { return localStorage.getItem(MODO_KEY) === 'avanzada' ? 'avanzada' : 'basica'; } catch (e) { return 'basica'; }
+  }
+
+  function setModo(m) {
+    modo = m;
+    try { localStorage.setItem(MODO_KEY, m); } catch (e) {}
+    renderChart();
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
   function fillSelect(id, options) {
     var s = $(id);
     options.forEach(function (o) {
@@ -261,10 +288,7 @@
     });
   }
 
-  function filtered() {
-    var days = parseInt($('g-rango').value, 10);
-    var act = $('g-actividad').value;
-    var fue = $('g-fuente').value;
+  function pick(days, act, fue) {
     var since = days ? Date.now() - days * 86400000 : 0;
     return sorted().filter(function (r) {
       return new Date(r.timestamp).getTime() >= since &&
@@ -273,104 +297,159 @@
     });
   }
 
-  function svgEl(name, attrs, text) {
-    var e = document.createElementNS('http://www.w3.org/2000/svg', name);
-    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
-    if (text != null) e.textContent = text;
-    return e;
+  function filtered() {
+    return pick(parseInt($('g-rango').value, 10), $('g-actividad').value, $('g-fuente').value);
   }
 
-  function renderChart() {
-    var host = $('chart');
-    var stats = $('stats');
-    host.innerHTML = '';
-    stats.innerHTML = '';
-    var data = filtered();
+  function fmtVal(v, m) {
+    return m === 'flujo' ? fmtNum(Math.round(v * 10) / 10) : String(Math.round(v));
+  }
 
-    if (data.length === 0) {
-      var p = document.createElement('div');
-      p.className = 'empty';
-      p.textContent = 'No hay datos en este periodo.';
-      host.appendChild(p);
-      return;
-    }
+  function cssVar(name, fallback) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  }
 
-    // Ancho real del contenedor, para que las etiquetas no se escalen.
-    var W = Math.max(280, host.clientWidth - 16), H = Math.round(W * 0.85);
-    var L = 38, R = 38, T = 16, B = 36;
-    var pw = W - L - R, ph = H - T - B;
-    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img' });
-
-    var times = data.map(function (r) { return new Date(r.timestamp).getTime(); });
-    var tMin = Math.min.apply(null, times), tMax = Math.max.apply(null, times);
-    if (tMin === tMax) { tMin -= 3600000; tMax += 3600000; }
-
-    var sMin = Math.min(90, Math.min.apply(null, data.map(function (r) { return r.spo2; })) - 2);
-    var sMax = 100;
-    var pMin = Math.min.apply(null, data.map(function (r) { return r.pulso; }));
-    var pMax = Math.max.apply(null, data.map(function (r) { return r.pulso; }));
-    pMin = Math.floor((pMin - 5) / 5) * 5;
-    pMax = Math.ceil((pMax + 5) / 5) * 5;
-
-    function x(t) { return L + (t - tMin) / (tMax - tMin) * pw; }
-    function ys(v) { return T + (sMax - v) / (sMax - sMin) * ph; }
-    function yp(v) { return T + (pMax - v) / (pMax - pMin) * ph; }
-
-    var style = getComputedStyle(document.documentElement);
-    var cSpo2 = style.getPropertyValue('--spo2').trim() || '#0b7a3b';
-    var cPulso = style.getPropertyValue('--pulso').trim() || '#c0392b';
-    var cGrid = style.getPropertyValue('--border').trim() || '#ccc';
-    var cText = style.getPropertyValue('--muted').trim() || '#666';
-
-    // rejilla y ejes
-    var i, steps = 5;
-    for (i = 0; i <= steps; i++) {
-      var gy = T + ph * i / steps;
-      svg.appendChild(svgEl('line', { x1: L, x2: W - R, y1: gy, y2: gy, stroke: cGrid, 'stroke-width': 1 }));
-      var sv = Math.round(sMax - (sMax - sMin) * i / steps);
-      var pv = Math.round(pMax - (pMax - pMin) * i / steps);
-      svg.appendChild(svgEl('text', { x: L - 6, y: gy + 4, 'text-anchor': 'end', fill: cSpo2, 'font-size': 13 }, sv));
-      svg.appendChild(svgEl('text', { x: W - R + 6, y: gy + 4, 'text-anchor': 'start', fill: cPulso, 'font-size': 13 }, pv));
-    }
-
-    // etiquetas de tiempo
-    var span = tMax - tMin;
-    for (i = 0; i <= 3; i++) {
-      var tt = tMin + span * i / 3;
-      var d = new Date(tt);
-      var label = span > 2 * 86400000
-        ? pad(d.getDate()) + '/' + pad(d.getMonth() + 1)
-        : pad(d.getHours()) + ':' + pad(d.getMinutes());
-      svg.appendChild(svgEl('text', {
-        x: x(tt), y: H - 14,
-        'text-anchor': i === 0 ? 'start' : (i === 3 ? 'end' : 'middle'),
-        fill: cText, 'font-size': 13
-      }, label));
-    }
-
-    function line(vals, fy, color) {
-      var pts = data.map(function (r, idx) {
-        return x(times[idx]).toFixed(1) + ',' + fy(vals(r)).toFixed(1);
-      });
-      if (pts.length > 1) {
-        svg.appendChild(svgEl('polyline', {
-          points: pts.join(' '), fill: 'none', stroke: color,
-          'stroke-width': 3, 'stroke-linejoin': 'round'
-        }));
+  // Agrupa por día: mínimo, máximo y media (para periodos largos, donde un punto por medición se amontona).
+  function dailyAgg(data, m) {
+    var map = {}, order = [];
+    data.forEach(function (r) {
+      var d = new Date(r.timestamp);
+      var key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+      if (!map[key]) {
+        map[key] = { t: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12), vals: [] };
+        order.push(key);
       }
-      data.forEach(function (r, idx) {
-        var c = svgEl('circle', { cx: x(times[idx]), cy: fy(vals(r)), r: 5, fill: color });
-        var t = svgEl('title', {}, fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + vals(r));
-        c.appendChild(t);
-        svg.appendChild(c);
+      map[key].vals.push(r[m]);
+    });
+    return order.map(function (k) {
+      var v = map[k].vals;
+      return {
+        t: map[k].t,
+        min: Math.min.apply(null, v),
+        max: Math.max.apply(null, v),
+        avg: v.reduce(function (a, b) { return a + b; }, 0) / v.length
+      };
+    });
+  }
+
+  // Devuelve el SVG (como texto) y lo necesario para el cursor: posiciones X y elementos dibujados.
+  function buildChart(data, m, days, W, H, showX, byAct) {
+    var L = 34, R = 8, T = 8, B = showX ? 22 : 8;
+    var pw = W - L - R, ph = H - T - B;
+    var t1 = Date.now();
+    var t0 = days ? t1 - days * 86400000 : Math.min.apply(null, data.map(function (r) { return new Date(r.timestamp).getTime(); }));
+    if (t1 - t0 < 3600000) t0 = t1 - 3600000;
+    var span = t1 - t0;
+    var daily = span > 10 * 86400000;
+    var items = daily ? dailyAgg(data, m) : data;
+    var vals = daily
+      ? items.reduce(function (a, d) { return a.concat([d.min, d.max]); }, [])
+      : items.map(function (r) { return r[m]; });
+
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    if (m === 'spo2') { hi = Math.min(100, hi + 1); lo = lo - 1; }
+    else if (m === 'flujo') { hi = hi + 1; lo = Math.max(0, lo - 1); }
+    else { hi = hi + 4; lo = lo - 4; }
+    lo = Math.floor(lo);
+    hi = Math.ceil(hi);
+    if (hi <= lo) hi = lo + 1;
+    if ((hi - lo) % 2) { if (m === 'spo2' && hi >= 100) lo--; else hi++; }
+
+    function X(t) { return L + (t - t0) / span * pw; }
+    function Y(v) { return T + (hi - v) / (hi - lo) * ph; }
+
+    var cGrid = cssVar('--border', '#ccc'), cText = cssVar('--muted', '#666'), cAcc = cssVar('--accent', '#0b5c8a');
+    var s = '', i;
+
+    for (i = 0; i <= 2; i++) {
+      var gv = lo + (hi - lo) * i / 2, gy = Y(gv);
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + gy + '" y2="' + gy + '" stroke="' + cGrid + '" stroke-width="1"/>';
+      s += '<text x="' + (L - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="13" fill="' + cText + '">' + fmtVal(gv, m) + '</text>';
+    }
+
+    if (showX) {
+      for (i = 0; i <= 3; i++) {
+        var tt = t0 + span * i / 3, d = new Date(tt);
+        var label = span <= 2 * 86400000
+          ? pad(d.getHours()) + ':' + pad(d.getMinutes())
+          : pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
+        s += '<text x="' + X(tt) + '" y="' + (H - 6) + '" text-anchor="' + (i === 0 ? 'start' : (i === 3 ? 'end' : 'middle')) +
+          '" font-size="13" fill="' + cText + '">' + label + '</text>';
+      }
+    }
+
+    var xs = [];
+    if (daily) {
+      items.forEach(function (d) {
+        var x = Math.min(X(t1), Math.max(L, X(d.t.getTime())));
+        xs.push(x);
+        s += '<line x1="' + x + '" x2="' + x + '" y1="' + Y(d.min) + '" y2="' + Y(d.max) + '" stroke="' + cAcc + '" stroke-width="6" stroke-linecap="round" opacity="0.35"/>';
+        s += '<circle cx="' + x + '" cy="' + Y(d.avg) + '" r="3" fill="' + cAcc + '"/>';
+      });
+    } else {
+      s += '<path d="' + items.map(function (r, j) {
+        return (j ? 'L' : 'M') + X(new Date(r.timestamp).getTime()) + ' ' + Y(r[m]);
+      }).join(' ') + '" fill="none" stroke="' + cText + '" stroke-width="1.5" opacity="0.6"/>';
+      var rad = span <= 2 * 86400000 ? 5 : 4;
+      items.forEach(function (r) {
+        var x = X(new Date(r.timestamp).getTime());
+        xs.push(x);
+        s += '<circle cx="' + x + '" cy="' + Y(r[m]) + '" r="' + rad + '" fill="' + (byAct ? (ACT_COL[r.actividad] || '#888780') : cAcc) + '"/>';
       });
     }
 
-    line(function (r) { return r.spo2; }, ys, cSpo2);
-    line(function (r) { return r.pulso; }, yp, cPulso);
-    host.appendChild(svg);
+    s += '<line class="cur" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" stroke="' + cssVar('--text', '#14212b') + '" stroke-width="1.5" opacity="0"/>';
+    return {
+      html: '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="Gráfica de ' + METRICAS[m].nombre + '">' + s + '</svg>',
+      xs: xs, items: items, daily: daily, W: W
+    };
+  }
 
-    // estadísticas
+  // Cursor compartido: al tocar o arrastrar sobre una gráfica se mueve en todas.
+  function attachScrub(charts, onMove, onLeave) {
+    var svgs = charts.map(function (c) { return c.box.querySelector('svg'); });
+    function hide() {
+      svgs.forEach(function (sv) { sv.querySelector('.cur').setAttribute('opacity', '0'); });
+      onLeave();
+    }
+    charts.forEach(function (c, j) {
+      var sv = svgs[j];
+      function move(e) {
+        var r = sv.getBoundingClientRect();
+        var x = (e.clientX - r.left) / r.width * c.ch.W, bi = 0, bd = Infinity;
+        c.ch.xs.forEach(function (px, q) {
+          var dd = Math.abs(px - x);
+          if (dd < bd) { bd = dd; bi = q; }
+        });
+        svgs.forEach(function (s2, q) {
+          var cur = s2.querySelector('.cur'), px = charts[q].ch.xs[bi];
+          cur.setAttribute('x1', px);
+          cur.setAttribute('x2', px);
+          cur.setAttribute('opacity', '0.7');
+        });
+        onMove(bi);
+      }
+      sv.addEventListener('pointermove', move);
+      sv.addEventListener('pointerdown', move);
+      sv.addEventListener('pointerleave', hide);
+      sv.addEventListener('pointercancel', hide);
+    });
+  }
+
+  function lecturaHtml(r, titulo) {
+    return '<div class="t">' + titulo + ' · ' + fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + esc(r.actividad) +
+      '</div><div class="v">' + r.spo2 + ' <small>% · ' + r.pulso + ' lpm</small></div>';
+  }
+
+  function diarioHtml(d, m) {
+    return '<div class="t">' + d.t.getDate() + '/' + (d.t.getMonth() + 1) + ' · media del día</div><div class="v">' +
+      fmtVal(d.avg, m) + ' <small>' + METRICAS[m].unidad + ' · de ' + fmtVal(d.min, m) + ' a ' + fmtVal(d.max, m) + '</small></div>';
+  }
+
+  function renderStats(data) {
+    var stats = $('stats');
+    stats.innerHTML = '';
+    if (!data.length) return;
     var spo = data.map(function (r) { return r.spo2; });
     var avg = spo.reduce(function (a, b) { return a + b; }, 0) / spo.length;
     [
@@ -387,6 +466,98 @@
       div.appendChild(sm);
       stats.appendChild(div);
     });
+  }
+
+  // Vista básica: lo mismo que ya había (SpO2 y pulso, con los mismos filtros y estadísticas), más limpio.
+  function renderBasica() {
+    var data = filtered(), days = parseInt($('g-rango').value, 10);
+    var card = $('b-lectura'), keys = ['spo2', 'pulso'];
+    keys.forEach(function (k) { $('chart-b-' + k).innerHTML = ''; });
+    $('stats').innerHTML = '';
+
+    if (!data.length) {
+      card.innerHTML = '<div class="empty">' + (records.length ? 'No hay datos con estos filtros.' : 'Todavía no hay mediciones.') + '</div>';
+      return;
+    }
+
+    var last = data[data.length - 1];
+    function ultima() { card.innerHTML = lecturaHtml(last, 'Última medición'); }
+    ultima();
+
+    var charts = keys.map(function (k) {
+      var box = $('chart-b-' + k), W = Math.max(280, box.clientWidth - 16);
+      var ch = buildChart(data, k, days, W, k === 'pulso' ? 160 : 180, k === 'pulso', false);
+      box.innerHTML = ch.html;
+      return { box: box, ch: ch, k: k };
+    });
+    var daily = charts[0].ch.daily;
+    attachScrub(charts, function (bi) {
+      card.innerHTML = daily ? diarioHtml(charts[0].ch.items[bi], 'spo2') : lecturaHtml(charts[0].ch.items[bi], 'Medición');
+    }, ultima);
+    renderStats(data);
+  }
+
+  function renderAvanzada() {
+    var data = filtered(), days = parseInt($('g-rango').value, 10);
+    var ro = $('a-lectura'), keys = ['spo2', 'pulso', 'flujo'];
+    keys.forEach(function (k) { $('chart-a-' + k).innerHTML = ''; });
+    $('a-leyenda').innerHTML = '';
+
+    if (!data.length) {
+      ro.innerHTML = '<div class="empty">No hay datos con estos filtros.</div>';
+      return;
+    }
+
+    var charts = keys.map(function (k) {
+      var box = $('chart-a-' + k), W = Math.max(280, box.clientWidth - 16);
+      var ch = buildChart(data, k, days, W, k === 'flujo' ? 140 : 116, k === 'flujo', true);
+      box.innerHTML = ch.html;
+      return { box: box, ch: ch, k: k };
+    });
+    var daily = charts[0].ch.daily;
+
+    function trio(titulo, celdas) {
+      return '<div class="t">' + titulo + '</div><div class="c">' + celdas.map(function (c) {
+        return '<div>' + c.n + '<b>' + c.v + '</b>' + c.sub + '</div>';
+      }).join('') + '</div>';
+    }
+    function resumen() {
+      ro.innerHTML = trio('Media del periodo · ' + data.length + ' mediciones', charts.map(function (c) {
+        var v = data.map(function (r) { return r[c.k]; });
+        var a = v.reduce(function (x, y) { return x + y; }, 0) / v.length;
+        return { n: METRICAS[c.k].nombre, v: fmtVal(a, c.k), sub: fmtVal(Math.min.apply(null, v), c.k) + ' a ' + fmtVal(Math.max.apply(null, v), c.k) };
+      }));
+    }
+    resumen();
+
+    $('a-leyenda').innerHTML = daily
+      ? '<span><i style="background:var(--accent);opacity:.5"></i>Barra: rango del día · punto: media</span>'
+      : ACTIVIDADES.map(function (a) {
+        return '<span><i style="background:' + (ACT_COL[a] || '#888780') + '"></i>' + esc(a) + '</span>';
+      }).join('');
+
+    attachScrub(charts, function (bi) {
+      if (daily) {
+        var d0 = charts[0].ch.items[bi];
+        ro.innerHTML = trio(d0.t.getDate() + '/' + (d0.t.getMonth() + 1) + ' · media del día', charts.map(function (c) {
+          var d = c.ch.items[bi];
+          return { n: METRICAS[c.k].nombre, v: fmtVal(d.avg, c.k), sub: fmtVal(d.min, c.k) + ' a ' + fmtVal(d.max, c.k) };
+        }));
+      } else {
+        var r = charts[0].ch.items[bi];
+        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + esc(r.actividad) + ' · ' + esc(r.fuente), charts.map(function (c) {
+          return { n: METRICAS[c.k].nombre, v: fmtVal(r[c.k], c.k), sub: METRICAS[c.k].unidad };
+        }));
+      }
+    }, resumen);
+  }
+
+  function renderChart() {
+    $('modo-basica').setAttribute('aria-pressed', String(modo === 'basica'));
+    $('modo-avanzada').setAttribute('aria-pressed', String(modo === 'avanzada'));
+    $('g-basica').hidden = modo !== 'basica';
+    $('g-avanzada').hidden = modo !== 'avanzada';
+    if (modo === 'basica') renderBasica(); else renderAvanzada();
   }
 
   // ---- Exportar / compartir ----
@@ -464,6 +635,8 @@
     ['g-rango', 'g-actividad', 'g-fuente'].forEach(function (id) {
       $(id).addEventListener('change', renderChart);
     });
+    $('modo-basica').addEventListener('click', function () { setModo('basica'); });
+    $('modo-avanzada').addEventListener('click', function () { setModo('avanzada'); });
     window.addEventListener('resize', function () {
       if ($('tab-grafica').classList.contains('active')) renderChart();
     });
