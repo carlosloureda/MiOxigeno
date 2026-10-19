@@ -47,6 +47,11 @@
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
 
+  // Lo mismo, como texto HTML (para las tarjetas de lectura de la gráfica).
+  function actDotHtml(nombre) {
+    return '<i class="dot" style="background:' + (ACT_COL[nombre] || '#888780') + '"></i>';
+  }
+
   // Punto del color de la actividad (el mismo en botones, lista y leyenda de la gráfica).
   function actDot(nombre) {
     var d = document.createElement('i');
@@ -448,7 +453,7 @@
   }
 
   function lecturaHtml(r, titulo) {
-    return '<div class="t">' + titulo + ' · ' + fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + esc(r.actividad) +
+    return '<div class="t">' + titulo + ' · ' + fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + actDotHtml(r.actividad) + esc(r.actividad) +
       '</div><div class="v">' + r.spo2 + ' <small>% · ' + r.pulso + ' lpm</small></div>';
   }
 
@@ -556,7 +561,7 @@
         }));
       } else {
         var r = charts[0].ch.items[bi];
-        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + esc(r.actividad) + ' · ' + esc(r.fuente), charts.map(function (c) {
+        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + actDotHtml(r.actividad) + esc(r.actividad) + ' · ' + esc(r.fuente), charts.map(function (c) {
           return { n: METRICAS[c.k].nombre, v: fmtVal(r[c.k], c.k), sub: METRICAS[c.k].unidad };
         }));
       }

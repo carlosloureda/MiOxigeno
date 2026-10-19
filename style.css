@@ -167,7 +167,8 @@ button.secondary { background: transparent; color: var(--accent); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0; font-size: 0.85rem; color: var(--muted); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
 
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.lectura .dot { width: 10px; height: 10px; margin-right: 5px; }
 .stats div {
   background: var(--card);
   border: 2px solid var(--border);
