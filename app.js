@@ -498,7 +498,9 @@
       };
     }
 
-    navigator.serviceWorker.register('sw.js').then(function (reg) {
+    // updateViaCache:'none' => al buscar actualizaciones, tampoco se fía de la caché HTTP
+    // para version.js (importado por sw.js); si no, podría no detectar la versión nueva.
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
       if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
       reg.addEventListener('updatefound', function () {
         var nw = reg.installing;
