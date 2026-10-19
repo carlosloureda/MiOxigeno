@@ -204,12 +204,15 @@
 
     data.forEach(function (r) {
       var li = document.createElement('li');
+      var color = ACT_COL[r.actividad] || '#888780';
+      li.style.borderLeft = '8px solid ' + color;
 
       var top = document.createElement('div');
       top.className = 'top';
       var when = document.createElement('span');
       when.textContent = fmtDate(r.timestamp) + ' · ' + fmtTime(r.timestamp);
       var act = document.createElement('span');
+      act.className = 'act';
       act.textContent = r.actividad;
       top.appendChild(when);
       top.appendChild(act);

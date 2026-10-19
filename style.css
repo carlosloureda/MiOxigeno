@@ -187,6 +187,7 @@ button.secondary { background: transparent; color: var(--accent); }
   margin-bottom: 10px;
 }
 .lista .top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+.lista .act { font-weight: 700; color: var(--text); }
 .lista .vals { font-size: 1.25rem; font-weight: 700; margin: 4px 0; }
 .lista .meta { font-size: 0.9rem; color: var(--muted); }
 .lista .row-actions { display: flex; gap: 8px; margin-top: 8px; }
