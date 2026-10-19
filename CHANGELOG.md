@@ -1,6 +1,6 @@
 # Cambios
 
-## 1.1.0 (sin publicar)
+## 1.1.0
 - Gráficas nuevas: SpO2, pulso y flujo de oxígeno apiladas con el mismo eje de tiempo, y un resumen arriba (media y rango de cada una). Se mantienen los filtros de periodo, actividad y fuente.
 - Los puntos llevan el color de su actividad, con leyenda. El eje se ajusta a los datos que hay y siempre incluye el último punto.
 - Al tocar o arrastrar el dedo por una gráfica, una línea se mueve en todas y se ve la medición de ese momento (con la fuente de oxígeno). Si hay varias a la misma hora, gana la más reciente y se avisa ("+1 más a esa hora").
