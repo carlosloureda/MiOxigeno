@@ -47,6 +47,14 @@
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
 
+  // Punto del color de la actividad (el mismo en botones, lista y leyenda de la gráfica).
+  function actDot(nombre) {
+    var d = document.createElement('i');
+    d.className = 'dot';
+    d.style.background = ACT_COL[nombre] || '#888780';
+    return d;
+  }
+
   function toLocalInput(date) {
     return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
       'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
@@ -106,6 +114,7 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.textContent = opt;
+      if (key === 'actividad') b.insertBefore(actDot(opt), b.firstChild);
       b.addEventListener('click', function () {
         form[key] = opt;
         paintChoices();
@@ -204,8 +213,6 @@
 
     data.forEach(function (r) {
       var li = document.createElement('li');
-      var color = ACT_COL[r.actividad] || '#888780';
-      li.style.borderLeft = '8px solid ' + color;
 
       var top = document.createElement('div');
       top.className = 'top';
@@ -214,6 +221,7 @@
       var act = document.createElement('span');
       act.className = 'act';
       act.textContent = r.actividad;
+      act.insertBefore(actDot(r.actividad), act.firstChild);
       top.appendChild(when);
       top.appendChild(act);
 
@@ -651,7 +659,7 @@
 
     resetForm();
 
-    $('version').textContent = 'Mi Oxígeno v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?');
+    $('version').textContent = 'v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?');
     registerServiceWorker();
   }
 
