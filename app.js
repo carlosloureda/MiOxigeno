@@ -2,7 +2,7 @@
   'use strict';
 
   // ---- Configuración (editable) ----
-  var ACTIVIDADES = ['Durmiendo', 'Tumbada', 'Sentada', 'WC', 'Transporte'];
+  var ACTIVIDADES = ['Durmiendo', 'Sentada', 'WC', 'Transporte'];
   var FUENTES = ['Concentrador', 'Portátil', 'Bombona', 'Arturito'];
   var STORAGE_KEY = 'oxi.v1';
   var LIMITS = {
@@ -15,7 +15,7 @@
   var records = load();
   var editingId = null;
   var form = {
-    actividad: 'Sentada',
+    actividad: ACTIVIDADES[1],
     fuente: FUENTES[0],
     spo2: 94,
     pulso: 80,
@@ -46,19 +46,6 @@
   }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
-
-  // Lo mismo, como texto HTML (para las tarjetas de lectura de la gráfica).
-  function actDotHtml(nombre) {
-    return '<i class="dot" style="background:' + (ACT_COL[nombre] || '#888780') + '"></i>';
-  }
-
-  // Punto del color de la actividad (el mismo en botones, lista y leyenda de la gráfica).
-  function actDot(nombre) {
-    var d = document.createElement('i');
-    d.className = 'dot';
-    d.style.background = ACT_COL[nombre] || '#888780';
-    return d;
-  }
 
   function toLocalInput(date) {
     return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
@@ -119,7 +106,6 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.textContent = opt;
-      if (key === 'actividad') b.insertBefore(actDot(opt), b.firstChild);
       b.addEventListener('click', function () {
         form[key] = opt;
         paintChoices();
@@ -224,9 +210,7 @@
       var when = document.createElement('span');
       when.textContent = fmtDate(r.timestamp) + ' · ' + fmtTime(r.timestamp);
       var act = document.createElement('span');
-      act.className = 'act';
       act.textContent = r.actividad;
-      act.insertBefore(actDot(r.actividad), act.firstChild);
       top.appendChild(when);
       top.appendChild(act);
 
@@ -267,20 +251,6 @@
   }
 
   // ---- Gráfica (SVG propio, sin dependencias) ----
-  // Dos vistas: básica (una gráfica de SpO2 y la última medición) y avanzada (SpO2, pulso y flujo
-  // apiladas, con filtros y cursor compartido).
-  var ACT_COL = { Durmiendo: '#7F77DD', Tumbada: '#1D9E75', Sentada: '#888780', WC: '#D85A30', Transporte: '#BA7517' };
-  var METRICAS = {
-    spo2: { nombre: 'SpO2', unidad: '%' },
-    pulso: { nombre: 'Pulso', unidad: 'lpm' },
-    flujo: { nombre: 'Flujo', unidad: 'L/min' }
-  };
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-
   function fillSelect(id, options) {
     var s = $(id);
     options.forEach(function (o) {
@@ -291,7 +261,10 @@
     });
   }
 
-  function pick(days, act, fue) {
+  function filtered() {
+    var days = parseInt($('g-rango').value, 10);
+    var act = $('g-actividad').value;
+    var fue = $('g-fuente').value;
     var since = days ? Date.now() - days * 86400000 : 0;
     return sorted().filter(function (r) {
       return new Date(r.timestamp).getTime() >= since &&
@@ -300,242 +273,120 @@
     });
   }
 
-  function filtered() {
-    return pick(parseInt($('g-rango').value, 10), $('g-actividad').value, $('g-fuente').value);
+  function svgEl(name, attrs, text) {
+    var e = document.createElementNS('http://www.w3.org/2000/svg', name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text != null) e.textContent = text;
+    return e;
   }
 
-  function fmtVal(v, m) {
-    return m === 'flujo' ? fmtNum(Math.round(v * 10) / 10) : String(Math.round(v));
-  }
-
-  function cssVar(name, fallback) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-  }
-
-  // Agrupa por día: mínimo, máximo y media (para periodos largos, donde un punto por medición se amontona).
-  function dailyAgg(data, m) {
-    var map = {}, order = [];
-    data.forEach(function (r) {
-      var d = new Date(r.timestamp);
-      var key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
-      if (!map[key]) {
-        map[key] = { t: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12), vals: [] };
-        order.push(key);
-      }
-      map[key].vals.push(r[m]);
-    });
-    return order.map(function (k) {
-      var v = map[k].vals;
-      return {
-        t: map[k].t,
-        min: Math.min.apply(null, v),
-        max: Math.max.apply(null, v),
-        avg: v.reduce(function (a, b) { return a + b; }, 0) / v.length
-      };
-    });
-  }
-
-  // Devuelve el SVG (como texto) y lo necesario para el cursor: posiciones X y elementos dibujados.
-  function buildChart(data, m, days, W, H, showX, byAct) {
-    var L = 34, R = 8, T = 8, B = showX ? 22 : 8;
-    var pw = W - L - R, ph = H - T - B;
-    // El eje se ajusta a los datos que hay (no al periodo entero) y siempre incluye el último punto,
-    // aunque tenga la hora en el futuro. Así no se apelmazan a un lado ni se salen del borde.
-    var times = data.map(function (r) { return new Date(r.timestamp).getTime(); });
-    var tmin = Math.min.apply(null, times), tmax = Math.max.apply(null, times);
-    var t1 = Math.max(Date.now(), tmax);
-    var t0 = days ? Math.max(Date.now() - days * 86400000, tmin) : tmin;
-    if (t1 - t0 < 3600000) t0 = t1 - 3600000;
-    var margen = (t1 - t0) * 0.04;
-    t0 -= margen;
-    t1 += margen;
-    var span = t1 - t0;
-    var daily = span > 10 * 86400000;
-    var items = daily ? dailyAgg(data, m) : data;
-    var vals = daily
-      ? items.reduce(function (a, d) { return a.concat([d.min, d.max]); }, [])
-      : items.map(function (r) { return r[m]; });
-
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-    if (m === 'spo2') { hi = Math.min(100, hi + 1); lo = lo - 1; }
-    else if (m === 'flujo') { hi = hi + 1; lo = Math.max(0, lo - 1); }
-    else { hi = hi + 4; lo = lo - 4; }
-    lo = Math.floor(lo);
-    hi = Math.ceil(hi);
-    if (hi <= lo) hi = lo + 1;
-    if ((hi - lo) % 2) { if (m === 'spo2' && hi >= 100) lo--; else hi++; }
-
-    function X(t) { return L + (t - t0) / span * pw; }
-    function Y(v) { return T + (hi - v) / (hi - lo) * ph; }
-
-    var cGrid = cssVar('--border', '#ccc'), cText = cssVar('--muted', '#666'), cAcc = cssVar('--accent', '#0b5c8a');
-    var cCard = cssVar('--card', '#fff');
-    var s = '', i;
-
-    for (i = 0; i <= 2; i++) {
-      var gv = lo + (hi - lo) * i / 2, gy = Y(gv);
-      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + gy + '" y2="' + gy + '" stroke="' + cGrid + '" stroke-width="1"/>';
-      s += '<text x="' + (L - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="13" fill="' + cText + '">' + fmtVal(gv, m) + '</text>';
-    }
-
-    if (showX) {
-      for (i = 0; i <= 3; i++) {
-        var tt = t0 + span * i / 3, d = new Date(tt);
-        var label = span <= 2 * 86400000
-          ? pad(d.getHours()) + ':' + pad(d.getMinutes())
-          : pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
-        s += '<text x="' + X(tt) + '" y="' + (H - 6) + '" text-anchor="' + (i === 0 ? 'start' : (i === 3 ? 'end' : 'middle')) +
-          '" font-size="13" fill="' + cText + '">' + label + '</text>';
-      }
-    }
-
-    var xs = [], ys = [];
-    if (daily) {
-      items.forEach(function (d) {
-        var x = Math.min(X(t1), Math.max(L, X(d.t.getTime())));
-        xs.push(x);
-        ys.push(Y(d.avg));
-        s += '<line x1="' + x + '" x2="' + x + '" y1="' + Y(d.min) + '" y2="' + Y(d.max) + '" stroke="' + cAcc + '" stroke-width="6" stroke-linecap="round" opacity="0.35"/>';
-        s += '<circle cx="' + x + '" cy="' + Y(d.avg) + '" r="3" fill="' + cAcc + '"/>';
-      });
-    } else {
-      s += '<path d="' + items.map(function (r, j) {
-        return (j ? 'L' : 'M') + X(new Date(r.timestamp).getTime()) + ' ' + Y(r[m]);
-      }).join(' ') + '" fill="none" stroke="' + cText + '" stroke-width="1.5" opacity="0.6"/>';
-      var rad = span <= 2 * 86400000 ? 5 : 4;
-      items.forEach(function (r) {
-        var x = X(new Date(r.timestamp).getTime());
-        xs.push(x);
-        ys.push(Y(r[m]));
-        // Aro del color del fondo: si dos puntos se solapan, se nota que hay dos.
-        s += '<circle cx="' + x + '" cy="' + Y(r[m]) + '" r="' + rad + '" fill="' + (byAct ? (ACT_COL[r.actividad] || '#888780') : cAcc) +
-          '" stroke="' + cCard + '" stroke-width="1.5"/>';
-      });
-    }
-
-    s += '<line class="cur" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" stroke="' + cssVar('--text', '#14212b') + '" stroke-width="1.5" opacity="0"/>';
-    return {
-      html: '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="Gráfica de ' + METRICAS[m].nombre + '">' + s + '</svg>',
-      xs: xs, ys: ys, items: items, daily: daily, W: W, H: H
-    };
-  }
-
-  // Qué punto se elige al tocar en (x, y). Función pura (sin pantalla), para poder probarla.
-  // - Manda la posición horizontal: gana el punto más cercano en x.
-  // - Si varios están casi a la misma hora (dentro de `tol` px), gana el más cercano en vertical.
-  // - Si siguen empatados, gana el más reciente: es el que se dibuja encima, el que se ve.
-  function elegirPunto(xs, ys, x, y, tol) {
-    var minDx = Infinity, i;
-    for (i = 0; i < xs.length; i++) minDx = Math.min(minDx, Math.abs(xs[i] - x));
-    var best = -1, bestDy = Infinity;
-    for (i = 0; i < xs.length; i++) {
-      if (Math.abs(xs[i] - x) > minDx + tol) continue;
-      var dy = Math.abs(ys[i] - y);
-      if (dy <= bestDy) { bestDy = dy; best = i; }
-    }
-    return best;
-  }
-
-  // Cursor compartido: al tocar o arrastrar sobre una gráfica se mueve en todas.
-  function attachScrub(charts, onMove, onLeave) {
-    var svgs = charts.map(function (c) { return c.box.querySelector('svg'); });
-    function hide() {
-      svgs.forEach(function (sv) { sv.querySelector('.cur').setAttribute('opacity', '0'); });
-      onLeave();
-    }
-    charts.forEach(function (c, j) {
-      var sv = svgs[j];
-      function move(e) {
-        var r = sv.getBoundingClientRect();
-        var x = (e.clientX - r.left) / r.width * c.ch.W, y = (e.clientY - r.top) / r.height * c.ch.H;
-        var bi = elegirPunto(c.ch.xs, c.ch.ys, x, y, 4);
-        svgs.forEach(function (s2, q) {
-          var cur = s2.querySelector('.cur'), px = charts[q].ch.xs[bi];
-          cur.setAttribute('x1', px);
-          cur.setAttribute('x2', px);
-          cur.setAttribute('opacity', '0.7');
-        });
-        onMove(bi);
-      }
-      sv.addEventListener('pointermove', move);
-      sv.addEventListener('pointerdown', move);
-      sv.addEventListener('pointerleave', hide);
-      sv.addEventListener('pointercancel', hide);
-    });
-  }
-
-  // Leyenda de colores de actividad (o la explicación de las barras, en periodos largos).
-  function leyendaHtml(daily) {
-    return daily
-      ? '<span><i style="background:var(--accent);opacity:.5"></i>Barra: rango del día · punto: media</span>'
-      : ACTIVIDADES.map(function (a) {
-        return '<span><i style="background:' + (ACT_COL[a] || '#888780') + '"></i>' + esc(a) + '</span>';
-      }).join('');
-  }
-
-  // Cuántas otras mediciones hay a la misma hora (mismo minuto) que la i. Función pura.
-  // Sirve para avisar cuando hay puntos totalmente tapados unos por otros.
-  function masALaMismaHora(items, i) {
-    var t = new Date(items[i].timestamp).getTime(), n = 0;
-    for (var j = 0; j < items.length; j++) {
-      if (j !== i && Math.abs(new Date(items[j].timestamp).getTime() - t) < 60000) n++;
-    }
-    return n;
-  }
-
-  // Vista de la gráfica: resumen arriba y SpO2, pulso y flujo apiladas, con los filtros de siempre.
   function renderChart() {
-    var data = filtered(), days = parseInt($('g-rango').value, 10);
-    var ro = $('a-lectura'), keys = ['spo2', 'pulso', 'flujo'];
-    keys.forEach(function (k) { $('chart-a-' + k).innerHTML = ''; });
-    $('a-leyenda').innerHTML = '';
+    var host = $('chart');
+    var stats = $('stats');
+    host.innerHTML = '';
+    stats.innerHTML = '';
+    var data = filtered();
 
-    if (!data.length) {
-      ro.innerHTML = '<div class="empty">' + (records.length ? 'No hay datos con estos filtros.' : 'Todavía no hay mediciones.') + '</div>';
+    if (data.length === 0) {
+      var p = document.createElement('div');
+      p.className = 'empty';
+      p.textContent = 'No hay datos en este periodo.';
+      host.appendChild(p);
       return;
     }
 
-    var charts = keys.map(function (k) {
-      var box = $('chart-a-' + k), W = Math.max(280, box.clientWidth - 16);
-      var ch = buildChart(data, k, days, W, k === 'flujo' ? 140 : 116, k === 'flujo', true);
-      box.innerHTML = ch.html;
-      return { box: box, ch: ch, k: k };
-    });
-    var daily = charts[0].ch.daily;
+    // Ancho real del contenedor, para que las etiquetas no se escalen.
+    var W = Math.max(280, host.clientWidth - 16), H = Math.round(W * 0.85);
+    var L = 38, R = 38, T = 16, B = 36;
+    var pw = W - L - R, ph = H - T - B;
+    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img' });
 
-    function trio(titulo, celdas) {
-      return '<div class="t">' + titulo + '</div><div class="c">' + celdas.map(function (c) {
-        return '<div>' + c.n + '<b>' + c.v + '</b>' + c.sub + '</div>';
-      }).join('') + '</div>';
+    var times = data.map(function (r) { return new Date(r.timestamp).getTime(); });
+    var tMin = Math.min.apply(null, times), tMax = Math.max.apply(null, times);
+    if (tMin === tMax) { tMin -= 3600000; tMax += 3600000; }
+
+    var sMin = Math.min(90, Math.min.apply(null, data.map(function (r) { return r.spo2; })) - 2);
+    var sMax = 100;
+    var pMin = Math.min.apply(null, data.map(function (r) { return r.pulso; }));
+    var pMax = Math.max.apply(null, data.map(function (r) { return r.pulso; }));
+    pMin = Math.floor((pMin - 5) / 5) * 5;
+    pMax = Math.ceil((pMax + 5) / 5) * 5;
+
+    function x(t) { return L + (t - tMin) / (tMax - tMin) * pw; }
+    function ys(v) { return T + (sMax - v) / (sMax - sMin) * ph; }
+    function yp(v) { return T + (pMax - v) / (pMax - pMin) * ph; }
+
+    var style = getComputedStyle(document.documentElement);
+    var cSpo2 = style.getPropertyValue('--spo2').trim() || '#0b7a3b';
+    var cPulso = style.getPropertyValue('--pulso').trim() || '#c0392b';
+    var cGrid = style.getPropertyValue('--border').trim() || '#ccc';
+    var cText = style.getPropertyValue('--muted').trim() || '#666';
+
+    // rejilla y ejes
+    var i, steps = 5;
+    for (i = 0; i <= steps; i++) {
+      var gy = T + ph * i / steps;
+      svg.appendChild(svgEl('line', { x1: L, x2: W - R, y1: gy, y2: gy, stroke: cGrid, 'stroke-width': 1 }));
+      var sv = Math.round(sMax - (sMax - sMin) * i / steps);
+      var pv = Math.round(pMax - (pMax - pMin) * i / steps);
+      svg.appendChild(svgEl('text', { x: L - 6, y: gy + 4, 'text-anchor': 'end', fill: cSpo2, 'font-size': 13 }, sv));
+      svg.appendChild(svgEl('text', { x: W - R + 6, y: gy + 4, 'text-anchor': 'start', fill: cPulso, 'font-size': 13 }, pv));
     }
-    function resumen() {
-      // Si el periodo o los filtros dejan fuera alguna medición, se dice (p. ej. "3 de 4").
-      var cuantas = data.length === records.length ? data.length : data.length + ' de ' + records.length;
-      ro.innerHTML = trio('Media del periodo · ' + cuantas + ' mediciones', charts.map(function (c) {
-        var v = data.map(function (r) { return r[c.k]; });
-        var a = v.reduce(function (x, y) { return x + y; }, 0) / v.length;
-        return { n: METRICAS[c.k].nombre, v: fmtVal(a, c.k), sub: fmtVal(Math.min.apply(null, v), c.k) + ' a ' + fmtVal(Math.max.apply(null, v), c.k) };
-      }));
+
+    // etiquetas de tiempo
+    var span = tMax - tMin;
+    for (i = 0; i <= 3; i++) {
+      var tt = tMin + span * i / 3;
+      var d = new Date(tt);
+      var label = span > 2 * 86400000
+        ? pad(d.getDate()) + '/' + pad(d.getMonth() + 1)
+        : pad(d.getHours()) + ':' + pad(d.getMinutes());
+      svg.appendChild(svgEl('text', {
+        x: x(tt), y: H - 14,
+        'text-anchor': i === 0 ? 'start' : (i === 3 ? 'end' : 'middle'),
+        fill: cText, 'font-size': 13
+      }, label));
     }
-    resumen();
 
-    $('a-leyenda').innerHTML = leyendaHtml(daily);
-
-    attachScrub(charts, function (bi) {
-      if (daily) {
-        var d0 = charts[0].ch.items[bi];
-        ro.innerHTML = trio(d0.t.getDate() + '/' + (d0.t.getMonth() + 1) + ' · media del día', charts.map(function (c) {
-          var d = c.ch.items[bi];
-          return { n: METRICAS[c.k].nombre, v: fmtVal(d.avg, c.k), sub: fmtVal(d.min, c.k) + ' a ' + fmtVal(d.max, c.k) };
-        }));
-      } else {
-        var r = charts[0].ch.items[bi], otras = masALaMismaHora(charts[0].ch.items, bi);
-        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + actDotHtml(r.actividad) + esc(r.actividad) + ' · ' + esc(r.fuente) +
-          (otras ? ' · +' + otras + ' más a esa hora' : ''), charts.map(function (c) {
-          return { n: METRICAS[c.k].nombre, v: fmtVal(r[c.k], c.k), sub: METRICAS[c.k].unidad };
+    function line(vals, fy, color) {
+      var pts = data.map(function (r, idx) {
+        return x(times[idx]).toFixed(1) + ',' + fy(vals(r)).toFixed(1);
+      });
+      if (pts.length > 1) {
+        svg.appendChild(svgEl('polyline', {
+          points: pts.join(' '), fill: 'none', stroke: color,
+          'stroke-width': 3, 'stroke-linejoin': 'round'
         }));
       }
-    }, resumen);
+      data.forEach(function (r, idx) {
+        var c = svgEl('circle', { cx: x(times[idx]), cy: fy(vals(r)), r: 5, fill: color });
+        var t = svgEl('title', {}, fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + vals(r));
+        c.appendChild(t);
+        svg.appendChild(c);
+      });
+    }
+
+    line(function (r) { return r.spo2; }, ys, cSpo2);
+    line(function (r) { return r.pulso; }, yp, cPulso);
+    host.appendChild(svg);
+
+    // estadísticas
+    var spo = data.map(function (r) { return r.spo2; });
+    var avg = spo.reduce(function (a, b) { return a + b; }, 0) / spo.length;
+    [
+      [Math.min.apply(null, spo) + '%', 'SpO2 mínima'],
+      [avg.toFixed(1).replace('.', ',') + '%', 'SpO2 media'],
+      [String(data.length), 'Mediciones']
+    ].forEach(function (s) {
+      var div = document.createElement('div');
+      var b = document.createElement('b');
+      b.textContent = s[0];
+      var sm = document.createElement('small');
+      sm.textContent = s[1];
+      div.appendChild(b);
+      div.appendChild(sm);
+      stats.appendChild(div);
+    });
   }
 
   // ---- Exportar / compartir ----
@@ -624,45 +475,9 @@
 
     resetForm();
 
-    $('version').textContent = 'v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?');
-    registerServiceWorker();
-  }
-
-  // ---- Actualizaciones ----
-  function registerServiceWorker() {
-    if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
-
-    var updateRequested = false;
-
-    // Recargar solo si ha sido ella quien ha pulsado Actualizar (nunca por sorpresa).
-    navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (updateRequested) { updateRequested = false; location.reload(); }
-    });
-
-    function offerUpdate(worker) {
-      $('update-banner').hidden = false;
-      $('btn-update').onclick = function () {
-        updateRequested = true;
-        worker.postMessage('SKIP_WAITING');
-      };
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
     }
-
-    // updateViaCache:'none' => al buscar actualizaciones, tampoco se fía de la caché HTTP
-    // para version.js (importado por sw.js); si no, podría no detectar la versión nueva.
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
-      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
-      reg.addEventListener('updatefound', function () {
-        var nw = reg.installing;
-        if (!nw) return;
-        nw.addEventListener('statechange', function () {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(nw);
-        });
-      });
-      // Comprobar de vez en cuando por si la app se queda abierta mucho tiempo.
-      document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') reg.update().catch(function () {});
-      });
-    }).catch(function () {});
   }
 
   init();
