@@ -2,7 +2,7 @@
   'use strict';
 
   // ---- Configuración (editable) ----
-  var ACTIVIDADES = ['Durmiendo', 'Sentada', 'WC', 'Transporte'];
+  var ACTIVIDADES = ['Durmiendo', 'Tumbada', 'Sentada', 'WC', 'Transporte'];
   var FUENTES = ['Concentrador', 'Portátil', 'Bombona', 'Arturito'];
   var STORAGE_KEY = 'oxi.v1';
   var LIMITS = {
@@ -15,7 +15,7 @@
   var records = load();
   var editingId = null;
   var form = {
-    actividad: ACTIVIDADES[1],
+    actividad: 'Sentada',
     fuente: FUENTES[0],
     spo2: 94,
     pulso: 80,

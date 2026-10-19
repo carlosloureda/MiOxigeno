@@ -70,6 +70,8 @@ input[type="text"], input[type="datetime-local"], select {
   background: var(--card);
   color: var(--text);
 }
+/* Con un número impar de botones, el último ocupa todo el ancho. */
+.choices button:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .choices button[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
