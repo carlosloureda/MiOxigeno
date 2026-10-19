@@ -108,8 +108,14 @@
       </div>
       <ul id="lista" class="lista"></ul>
       <p id="vacio" class="msg" hidden>Todavía no hay mediciones.</p>
+      <p id="version" class="version"></p>
     </section>
   </main>
+
+  <div id="update-banner" class="update-banner" role="alert" hidden>
+    <span>Hay una versión nueva.</span>
+    <button type="button" id="btn-update">Actualizar</button>
+  </div>
 
   <nav class="tabs" role="tablist">
     <button type="button" data-tab="anotar" class="active" role="tab">Anotar</button>
@@ -117,6 +123,7 @@
     <button type="button" data-tab="datos" role="tab">Datos</button>
   </nav>
 
+  <script src="version.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

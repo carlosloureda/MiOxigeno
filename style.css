@@ -168,6 +168,35 @@ button.secondary { background: transparent; color: var(--accent); }
 }
 .lista .row-actions .del { color: var(--danger); border-color: var(--danger); }
 
+.version { margin-top: 24px; text-align: center; font-size: 0.8rem; color: var(--muted); }
+
+.update-banner {
+  position: fixed;
+  left: 12px; right: 12px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 14px;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.update-banner[hidden] { display: none; }
+.update-banner button {
+  font: inherit;
+  font-weight: 700;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 2px solid var(--accent-text);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--accent-text);
+}
+
 .tabs {
   position: fixed;
   left: 0; right: 0; bottom: 0;

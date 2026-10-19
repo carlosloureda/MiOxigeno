@@ -475,9 +475,43 @@
 
     resetForm();
 
-    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+    $('version').textContent = 'Mi Oxígeno v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?');
+    registerServiceWorker();
+  }
+
+  // ---- Actualizaciones ----
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+
+    var updateRequested = false;
+
+    // Recargar solo si ha sido ella quien ha pulsado Actualizar (nunca por sorpresa).
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (updateRequested) { updateRequested = false; location.reload(); }
+    });
+
+    function offerUpdate(worker) {
+      $('update-banner').hidden = false;
+      $('btn-update').onclick = function () {
+        updateRequested = true;
+        worker.postMessage('SKIP_WAITING');
+      };
     }
+
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
+      reg.addEventListener('updatefound', function () {
+        var nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', function () {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(nw);
+        });
+      });
+      // Comprobar de vez en cuando por si la app se queda abierta mucho tiempo.
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') reg.update().catch(function () {});
+      });
+    }).catch(function () {});
   }
 
   init();
