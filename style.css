@@ -130,22 +130,6 @@ button.secondary { background: transparent; color: var(--accent); }
 
 .chart svg { touch-action: pan-y; }
 
-.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 14px; }
-.seg button {
-  font: inherit;
-  min-height: 52px;
-  border: 2px solid var(--border);
-  border-radius: 14px;
-  background: var(--card);
-  color: var(--text);
-}
-.seg button[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
-  font-weight: 700;
-}
-
 .lectura {
   background: var(--card);
   border: 2px solid var(--border);
@@ -167,18 +151,8 @@ button.secondary { background: transparent; color: var(--accent); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0; font-size: 0.85rem; color: var(--muted); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
 
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
 .lectura .dot { width: 10px; height: 10px; margin-right: 5px; }
 .nw { white-space: nowrap; }
-.stats div {
-  background: var(--card);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  padding: 8px;
-  text-align: center;
-}
-.stats b { display: block; font-size: 1.3rem; }
-.stats small { color: var(--muted); font-size: 0.75rem; }
 
 .lista { list-style: none; margin: 14px 0 0; padding: 0; }
 .lista li {

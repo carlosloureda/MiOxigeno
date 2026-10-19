@@ -275,19 +275,6 @@
     pulso: { nombre: 'Pulso', unidad: 'lpm' },
     flujo: { nombre: 'Flujo', unidad: 'L/min' }
   };
-  var MODO_KEY = 'oxi.modo';
-  var modo = loadModo();
-
-  function loadModo() {
-    try { return localStorage.getItem(MODO_KEY) === 'avanzada' ? 'avanzada' : 'basica'; } catch (e) { return 'basica'; }
-  }
-
-  function setModo(m) {
-    modo = m;
-    try { localStorage.setItem(MODO_KEY, m); } catch (e) {}
-    renderChart();
-  }
-
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -382,6 +369,7 @@
     function Y(v) { return T + (hi - v) / (hi - lo) * ph; }
 
     var cGrid = cssVar('--border', '#ccc'), cText = cssVar('--muted', '#666'), cAcc = cssVar('--accent', '#0b5c8a');
+    var cCard = cssVar('--card', '#fff');
     var s = '', i;
 
     for (i = 0; i <= 2; i++) {
@@ -401,11 +389,12 @@
       }
     }
 
-    var xs = [];
+    var xs = [], ys = [];
     if (daily) {
       items.forEach(function (d) {
         var x = Math.min(X(t1), Math.max(L, X(d.t.getTime())));
         xs.push(x);
+        ys.push(Y(d.avg));
         s += '<line x1="' + x + '" x2="' + x + '" y1="' + Y(d.min) + '" y2="' + Y(d.max) + '" stroke="' + cAcc + '" stroke-width="6" stroke-linecap="round" opacity="0.35"/>';
         s += '<circle cx="' + x + '" cy="' + Y(d.avg) + '" r="3" fill="' + cAcc + '"/>';
       });
@@ -417,15 +406,34 @@
       items.forEach(function (r) {
         var x = X(new Date(r.timestamp).getTime());
         xs.push(x);
-        s += '<circle cx="' + x + '" cy="' + Y(r[m]) + '" r="' + rad + '" fill="' + (byAct ? (ACT_COL[r.actividad] || '#888780') : cAcc) + '"/>';
+        ys.push(Y(r[m]));
+        // Aro del color del fondo: si dos puntos se solapan, se nota que hay dos.
+        s += '<circle cx="' + x + '" cy="' + Y(r[m]) + '" r="' + rad + '" fill="' + (byAct ? (ACT_COL[r.actividad] || '#888780') : cAcc) +
+          '" stroke="' + cCard + '" stroke-width="1.5"/>';
       });
     }
 
     s += '<line class="cur" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" stroke="' + cssVar('--text', '#14212b') + '" stroke-width="1.5" opacity="0"/>';
     return {
       html: '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="Gráfica de ' + METRICAS[m].nombre + '">' + s + '</svg>',
-      xs: xs, items: items, daily: daily, W: W
+      xs: xs, ys: ys, items: items, daily: daily, W: W, H: H
     };
+  }
+
+  // Qué punto se elige al tocar en (x, y). Función pura (sin pantalla), para poder probarla.
+  // - Manda la posición horizontal: gana el punto más cercano en x.
+  // - Si varios están casi a la misma hora (dentro de `tol` px), gana el más cercano en vertical.
+  // - Si siguen empatados, gana el más reciente: es el que se dibuja encima, el que se ve.
+  function elegirPunto(xs, ys, x, y, tol) {
+    var minDx = Infinity, i;
+    for (i = 0; i < xs.length; i++) minDx = Math.min(minDx, Math.abs(xs[i] - x));
+    var best = -1, bestDy = Infinity;
+    for (i = 0; i < xs.length; i++) {
+      if (Math.abs(xs[i] - x) > minDx + tol) continue;
+      var dy = Math.abs(ys[i] - y);
+      if (dy <= bestDy) { bestDy = dy; best = i; }
+    }
+    return best;
   }
 
   // Cursor compartido: al tocar o arrastrar sobre una gráfica se mueve en todas.
@@ -439,11 +447,8 @@
       var sv = svgs[j];
       function move(e) {
         var r = sv.getBoundingClientRect();
-        var x = (e.clientX - r.left) / r.width * c.ch.W, bi = 0, bd = Infinity;
-        c.ch.xs.forEach(function (px, q) {
-          var dd = Math.abs(px - x);
-          if (dd < bd) { bd = dd; bi = q; }
-        });
+        var x = (e.clientX - r.left) / r.width * c.ch.W, y = (e.clientY - r.top) / r.height * c.ch.H;
+        var bi = elegirPunto(c.ch.xs, c.ch.ys, x, y, 4);
         svgs.forEach(function (s2, q) {
           var cur = s2.querySelector('.cur'), px = charts[q].ch.xs[bi];
           cur.setAttribute('x1', px);
@@ -468,78 +473,25 @@
       }).join('');
   }
 
-  function lecturaHtml(r, titulo) {
-    return '<div class="t">' + titulo + ' · ' + fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · <span class="nw">' + actDotHtml(r.actividad) + esc(r.actividad) + '</span>' +
-      '</div><div class="v">' + r.spo2 + ' <small>% · ' + r.pulso + ' lpm</small></div>';
-  }
-
-  function diarioHtml(d, m) {
-    return '<div class="t">' + d.t.getDate() + '/' + (d.t.getMonth() + 1) + ' · media del día</div><div class="v">' +
-      fmtVal(d.avg, m) + ' <small>' + METRICAS[m].unidad + ' · de ' + fmtVal(d.min, m) + ' a ' + fmtVal(d.max, m) + '</small></div>';
-  }
-
-  function renderStats(data) {
-    var stats = $('stats');
-    stats.innerHTML = '';
-    if (!data.length) return;
-    var spo = data.map(function (r) { return r.spo2; });
-    var avg = spo.reduce(function (a, b) { return a + b; }, 0) / spo.length;
-    [
-      [Math.min.apply(null, spo) + '%', 'SpO2 mínima'],
-      [avg.toFixed(1).replace('.', ',') + '%', 'SpO2 media'],
-      // Si el periodo o los filtros dejan fuera alguna, se dice (p. ej. "3 de 4").
-      [data.length === records.length ? String(data.length) : data.length + ' de ' + records.length, 'Mediciones']
-    ].forEach(function (s) {
-      var div = document.createElement('div');
-      var b = document.createElement('b');
-      b.textContent = s[0];
-      var sm = document.createElement('small');
-      sm.textContent = s[1];
-      div.appendChild(b);
-      div.appendChild(sm);
-      stats.appendChild(div);
-    });
-  }
-
-  // Vista básica: lo mismo que ya había (SpO2 y pulso, con los mismos filtros y estadísticas), más limpio.
-  function renderBasica() {
-    var data = filtered(), days = parseInt($('g-rango').value, 10);
-    var card = $('b-lectura'), keys = ['spo2', 'pulso'];
-    keys.forEach(function (k) { $('chart-b-' + k).innerHTML = ''; });
-    $('b-leyenda').innerHTML = '';
-    $('stats').innerHTML = '';
-
-    if (!data.length) {
-      card.innerHTML = '<div class="empty">' + (records.length ? 'No hay datos con estos filtros.' : 'Todavía no hay mediciones.') + '</div>';
-      return;
+  // Cuántas otras mediciones hay a la misma hora (mismo minuto) que la i. Función pura.
+  // Sirve para avisar cuando hay puntos totalmente tapados unos por otros.
+  function masALaMismaHora(items, i) {
+    var t = new Date(items[i].timestamp).getTime(), n = 0;
+    for (var j = 0; j < items.length; j++) {
+      if (j !== i && Math.abs(new Date(items[j].timestamp).getTime() - t) < 60000) n++;
     }
-
-    var last = data[data.length - 1];
-    function ultima() { card.innerHTML = lecturaHtml(last, 'Última medición'); }
-    ultima();
-
-    var charts = keys.map(function (k) {
-      var box = $('chart-b-' + k), W = Math.max(280, box.clientWidth - 16);
-      var ch = buildChart(data, k, days, W, k === 'pulso' ? 160 : 180, k === 'pulso', true);
-      box.innerHTML = ch.html;
-      return { box: box, ch: ch, k: k };
-    });
-    var daily = charts[0].ch.daily;
-    $('b-leyenda').innerHTML = leyendaHtml(daily);
-    attachScrub(charts, function (bi) {
-      card.innerHTML = daily ? diarioHtml(charts[0].ch.items[bi], 'spo2') : lecturaHtml(charts[0].ch.items[bi], 'Medición');
-    }, ultima);
-    renderStats(data);
+    return n;
   }
 
-  function renderAvanzada() {
+  // Vista de la gráfica: resumen arriba y SpO2, pulso y flujo apiladas, con los filtros de siempre.
+  function renderChart() {
     var data = filtered(), days = parseInt($('g-rango').value, 10);
     var ro = $('a-lectura'), keys = ['spo2', 'pulso', 'flujo'];
     keys.forEach(function (k) { $('chart-a-' + k).innerHTML = ''; });
     $('a-leyenda').innerHTML = '';
 
     if (!data.length) {
-      ro.innerHTML = '<div class="empty">No hay datos con estos filtros.</div>';
+      ro.innerHTML = '<div class="empty">' + (records.length ? 'No hay datos con estos filtros.' : 'Todavía no hay mediciones.') + '</div>';
       return;
     }
 
@@ -557,7 +509,9 @@
       }).join('') + '</div>';
     }
     function resumen() {
-      ro.innerHTML = trio('Media del periodo · ' + data.length + ' mediciones', charts.map(function (c) {
+      // Si el periodo o los filtros dejan fuera alguna medición, se dice (p. ej. "3 de 4").
+      var cuantas = data.length === records.length ? data.length : data.length + ' de ' + records.length;
+      ro.innerHTML = trio('Media del periodo · ' + cuantas + ' mediciones', charts.map(function (c) {
         var v = data.map(function (r) { return r[c.k]; });
         var a = v.reduce(function (x, y) { return x + y; }, 0) / v.length;
         return { n: METRICAS[c.k].nombre, v: fmtVal(a, c.k), sub: fmtVal(Math.min.apply(null, v), c.k) + ' a ' + fmtVal(Math.max.apply(null, v), c.k) };
@@ -575,20 +529,13 @@
           return { n: METRICAS[c.k].nombre, v: fmtVal(d.avg, c.k), sub: fmtVal(d.min, c.k) + ' a ' + fmtVal(d.max, c.k) };
         }));
       } else {
-        var r = charts[0].ch.items[bi];
-        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + actDotHtml(r.actividad) + esc(r.actividad) + ' · ' + esc(r.fuente), charts.map(function (c) {
+        var r = charts[0].ch.items[bi], otras = masALaMismaHora(charts[0].ch.items, bi);
+        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + actDotHtml(r.actividad) + esc(r.actividad) + ' · ' + esc(r.fuente) +
+          (otras ? ' · +' + otras + ' más a esa hora' : ''), charts.map(function (c) {
           return { n: METRICAS[c.k].nombre, v: fmtVal(r[c.k], c.k), sub: METRICAS[c.k].unidad };
         }));
       }
     }, resumen);
-  }
-
-  function renderChart() {
-    $('modo-basica').setAttribute('aria-pressed', String(modo === 'basica'));
-    $('modo-avanzada').setAttribute('aria-pressed', String(modo === 'avanzada'));
-    $('g-basica').hidden = modo !== 'basica';
-    $('g-avanzada').hidden = modo !== 'avanzada';
-    if (modo === 'basica') renderBasica(); else renderAvanzada();
   }
 
   // ---- Exportar / compartir ----
@@ -666,8 +613,6 @@
     ['g-rango', 'g-actividad', 'g-fuente'].forEach(function (id) {
       $(id).addEventListener('change', renderChart);
     });
-    $('modo-basica').addEventListener('click', function () { setModo('basica'); });
-    $('modo-avanzada').addEventListener('click', function () { setModo('avanzada'); });
     window.addEventListener('resize', function () {
       if ($('tab-grafica').classList.contains('active')) renderChart();
     });
