@@ -6,6 +6,7 @@
 - Gráfica: nuevos periodos de 6 h y 12 h, y filtros por modo y sitio.
 - En la gráfica, el relleno del punto es el modo y el borde es el sitio, cada sitio con su forma (círculo, cuadrado, triángulo, rombo), para no depender solo del color.
 - Colores nuevos con más contraste y pensados para daltonismo, con paleta distinta en tema claro y oscuro. Las marcas de color son más grandes.
+- La nota es ahora un campo que crece mientras se escribe (hasta 4 líneas, luego hace scroll), admite hasta 500 caracteres (antes 120) y respeta los saltos de línea en la lista de Datos.
 - El CSV cambia: la columna `actividad` pasa a ser `modo` y `sitio`.
 
 ## 1.1.0

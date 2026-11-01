@@ -8,5 +8,6 @@ var NOVEDADES = [
   'Ahora se anota el modo (Durmiendo, Tumbada, Sentada, De pie) y el sitio (Cama, Sillón, WC, Transporte) por separado. Se pueden combinar.',
   'Tus mediciones anteriores se han convertido solas. No tienes que hacer nada.',
   'La gráfica tiene periodos de 6 y 12 horas, y filtros por modo y sitio.',
-  'Colores nuevos, más fáciles de distinguir. Cada sitio tiene además su propia forma.'
+  'Colores nuevos, más fáciles de distinguir. Cada sitio tiene además su propia forma.',
+  'La nota ahora crece mientras escribes y admite más texto.'
 ];
