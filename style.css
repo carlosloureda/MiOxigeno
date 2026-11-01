@@ -72,7 +72,9 @@ input[type="text"], input[type="datetime-local"], select {
 }
 /* Punto de color en una columna fija y texto alineado a la izquierda: todos los textos empiezan en la misma x. */
 .choices button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0 14px; text-align: left; }
-.choices .dot { flex: none; margin-right: 0; box-shadow: none; }
+.choices .dot { width: 26px; height: 26px; margin-right: 0; padding: 2px; border-radius: 8px; }
+/* En el botón seleccionado la marca va sobre una ficha blanca: se ve con cualquier color. */
+.choices button[aria-pressed="true"] .dot { background: #fff; }
 .choices button[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
@@ -156,9 +158,9 @@ button.secondary { background: transparent; color: var(--accent); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
 .legend .lg { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .legend .lg b { font-weight: 600; width: 100%; }
-.dot.ring { background: transparent; border: 3px solid; }
+.legend .dot { width: 20px; height: 20px; margin-right: 4px; vertical-align: -5px; }
 
-.lectura .dot { width: 10px; height: 10px; margin-right: 5px; }
+.lectura .dot { width: 16px; height: 16px; margin-right: 4px; vertical-align: -3px; }
 .nw { white-space: nowrap; }
 
 .lista { list-style: none; margin: 14px 0 0; padding: 0; }
@@ -172,12 +174,11 @@ button.secondary { background: transparent; color: var(--accent); }
 .lista .top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.85rem; color: var(--muted); }
 .dot {
   display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  margin-right: 8px;
-  vertical-align: -1px;
-  box-shadow: 0 0 0 2px var(--card);
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  vertical-align: -5px;
+  flex: none;
 }
 .lista .act { font-weight: 700; color: var(--text); }
 .lista .vals { font-size: 1.25rem; font-weight: 700; margin: 4px 0; }

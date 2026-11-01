@@ -83,15 +83,16 @@
 
   // Color del modo (relleno) o del sitio (borde). Los mismos en botones, lista y gráfica.
   function colorDe(tipo, nombre) {
-    return (tipo === 'sitio' ? SITIO_COL : MODO_COL)[nombre] || '#888780';
+    return paleta()[tipo === 'sitio' ? 'sitio' : 'modo'][nombre] || '#888780';
   }
 
-  // Punto de color como texto HTML: lleno para el modo, aro para el sitio.
+  // Marca de color como texto HTML: círculo lleno para el modo, forma con borde para el sitio.
   function dotHtml(tipo, nombre) {
     var c = colorDe(tipo, nombre);
-    return tipo === 'sitio'
-      ? '<i class="dot ring" style="border-color:' + c + '"></i>'
-      : '<i class="dot" style="background:' + c + '"></i>';
+    var g = tipo === 'sitio'
+      ? forma(SITIO_FORMA[nombre], 12, 12, 8, 'none', c, 3.5)
+      : '<circle cx="12" cy="12" r="9" fill="' + c + '"/>';
+    return '<svg class="dot" viewBox="0 0 24 24" aria-hidden="true">' + g + '</svg>';
   }
 
   // Lo mismo, como elemento (para botones).
@@ -312,9 +313,39 @@
   // ---- Gráfica (SVG propio, sin dependencias) ----
   // Dos vistas: básica (una gráfica de SpO2 y la última medición) y avanzada (SpO2, pulso y flujo
   // apiladas, con filtros y cursor compartido).
-  // El punto lleva el color del modo (relleno) y el del sitio (borde).
-  var MODO_COL = { Durmiendo: '#7F77DD', Tumbada: '#1D9E75', Sentada: '#888780', 'De pie': '#378ADD' };
-  var SITIO_COL = { Cama: '#D4537E', 'Sillón': '#639922', WC: '#D85A30', Transporte: '#BA7517' };
+  // El punto lleva el color del modo (relleno) y el del sitio (borde y forma).
+  // Paletas elegidas para que se distingan con daltonismo y con vista cansada: contraste >= 3 contra
+  // el fondo del tema y separación de color (ΔE >= 27) dentro de cada grupo con los tres tipos de daltonismo.
+  var PALETAS = {
+    claro: {
+      modo: { Durmiendo: '#332288', Tumbada: '#2C7BB6', Sentada: '#882255', 'De pie': '#D55E00' },
+      sitio: { Cama: '#7B3294', 'Sillón': '#CC79A7', WC: '#117733', Transporte: '#4D4D4D' }
+    },
+    oscuro: {
+      modo: { Durmiendo: '#0072B2', Tumbada: '#88CCEE', Sentada: '#CC6677', 'De pie': '#F0E442' },
+      sitio: { Cama: '#E69F00', 'Sillón': '#56B4E9', WC: '#DDCC77', Transporte: '#8E6C00' }
+    }
+  };
+  // Cada sitio, además de color, tiene su forma: así no se depende solo del color.
+  var SITIO_FORMA = { Cama: 'circulo', 'Sillón': 'cuadrado', WC: 'triangulo', Transporte: 'rombo' };
+  function paleta() {
+    return PALETAS[window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro'];
+  }
+
+  // Dibuja una forma SVG centrada en (x, y) de radio r.
+  function forma(f, x, y, r, fill, stroke, sw) {
+    var a = ' fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + sw + '" stroke-linejoin="round"';
+    if (f === 'cuadrado') {
+      return '<rect x="' + (x - r * 0.85) + '" y="' + (y - r * 0.85) + '" width="' + (r * 1.7) + '" height="' + (r * 1.7) + '" rx="1.5"' + a + '/>';
+    }
+    if (f === 'triangulo') {
+      return '<polygon points="' + x + ',' + (y - r) + ' ' + (x + r) + ',' + (y + r * 0.8) + ' ' + (x - r) + ',' + (y + r * 0.8) + '"' + a + '/>';
+    }
+    if (f === 'rombo') {
+      return '<polygon points="' + x + ',' + (y - r * 1.15) + ' ' + (x + r * 1.15) + ',' + y + ' ' + x + ',' + (y + r * 1.15) + ' ' + (x - r * 1.15) + ',' + y + '"' + a + '/>';
+    }
+    return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '"' + a + '/>';
+  }
   var METRICAS = {
     spo2: { nombre: 'SpO2', unidad: '%' },
     pulso: { nombre: 'Pulso', unidad: 'lpm' },
@@ -454,8 +485,9 @@
         xs.push(x);
         ys.push(Y(r[m]));
         // Relleno = modo, borde grueso = sitio. Si dos puntos se solapan, se nota por el borde.
-        s += '<circle cx="' + x + '" cy="' + Y(r[m]) + '" r="' + rad + '" fill="' + (byAct ? colorDe('modo', r.modo) : cAcc) +
-          '" stroke="' + (byAct ? colorDe('sitio', r.sitio) : cCard) + '" stroke-width="3"/>';
+        s += byAct
+          ? forma(SITIO_FORMA[r.sitio], x, Y(r[m]), rad, colorDe('modo', r.modo), colorDe('sitio', r.sitio), 3)
+          : forma('circulo', x, Y(r[m]), rad, cAcc, cCard, 3);
       });
     }
 
@@ -663,6 +695,19 @@
     ['g-rango', 'g-modo', 'g-sitio', 'g-fuente'].forEach(function (id) {
       $(id).addEventListener('change', renderChart);
     });
+    // Si cambia el tema claro/oscuro con la app abierta, se repintan las marcas de color.
+    if (window.matchMedia) {
+      var mq = matchMedia('(prefers-color-scheme: dark)');
+      var alCambiarTema = function () {
+        buildChoices('f-modo', MODOS, 'modo');
+        buildChoices('f-sitio', SITIOS, 'sitio');
+        paintChoices();
+        if ($('tab-grafica').classList.contains('active')) renderChart();
+        if ($('tab-datos').classList.contains('active')) renderList();
+      };
+      if (mq.addEventListener) mq.addEventListener('change', alCambiarTema);
+      else if (mq.addListener) mq.addListener(alCambiarTema);
+    }
     window.addEventListener('resize', function () {
       if ($('tab-grafica').classList.contains('active')) renderChart();
     });
