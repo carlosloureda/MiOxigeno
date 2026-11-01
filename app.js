@@ -301,7 +301,7 @@
   }
 
   function filtered() {
-    return pick(parseInt($('g-rango').value, 10), $('g-actividad').value, $('g-fuente').value);
+    return pick(parseFloat($('g-rango').value), $('g-actividad').value, $('g-fuente').value);
   }
 
   function fmtVal(v, m) {
@@ -485,7 +485,7 @@
 
   // Vista de la gráfica: resumen arriba y SpO2, pulso y flujo apiladas, con los filtros de siempre.
   function renderChart() {
-    var data = filtered(), days = parseInt($('g-rango').value, 10);
+    var data = filtered(), days = parseFloat($('g-rango').value);
     var ro = $('a-lectura'), keys = ['spo2', 'pulso', 'flujo'];
     keys.forEach(function (k) { $('chart-a-' + k).innerHTML = ''; });
     $('a-leyenda').innerHTML = '';
