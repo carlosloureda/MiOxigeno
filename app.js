@@ -178,6 +178,13 @@
     });
   }
 
+  // La nota crece con lo que se escribe (hasta el máximo que marca el CSS). Solo mide si está a la vista.
+  function ajustarNota() {
+    var t = $('f-nota');
+    t.style.height = 'auto';
+    if (t.scrollHeight) t.style.height = (t.scrollHeight + t.offsetHeight - t.clientHeight) + 'px';
+  }
+
   function paintValues() {
     $('v-spo2').textContent = fmtNum(form.spo2);
     $('v-pulso').textContent = fmtNum(form.pulso);
@@ -197,6 +204,7 @@
     }
     $('f-fecha').value = toLocalInput(new Date());
     $('f-nota').value = '';
+    ajustarNota();
     $('form-title').textContent = 'Nueva medición';
     $('btn-guardar').textContent = 'Guardar';
     $('btn-cancelar').hidden = true;
@@ -222,6 +230,7 @@
     paintChoices();
     paintValues();
     showTab('anotar');
+    ajustarNota();
   }
 
   function submitForm() {
@@ -732,6 +741,7 @@
       if ($('tab-grafica').classList.contains('active')) renderChart();
     });
 
+    $('f-nota').addEventListener('input', ajustarNota);
     $('btn-guardar').addEventListener('click', submitForm);
     $('btn-cancelar').addEventListener('click', function () { resetForm(); showMsg('', false); });
     $('btn-csv').addEventListener('click', downloadCsv);
