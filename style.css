@@ -70,6 +70,9 @@ input[type="text"], input[type="datetime-local"], select {
   background: var(--card);
   color: var(--text);
 }
+/* Punto de color en una columna fija y texto alineado a la izquierda: todos los textos empiezan en la misma x. */
+.choices button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0 14px; text-align: left; }
+.choices .dot { flex: none; margin-right: 0; box-shadow: none; }
 .choices button[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
