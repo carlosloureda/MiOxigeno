@@ -767,6 +767,9 @@
 
     function offerUpdate(worker) {
       $('update-banner').hidden = false;
+      // Sin mediciones no hay nada que guardar: se oculta el botón de la copia.
+      $('btn-update-csv').hidden = records.length === 0;
+      $('btn-update-csv').onclick = downloadCsv;
       $('btn-update').onclick = function () {
         updateRequested = true;
         worker.postMessage('SKIP_WAITING');
