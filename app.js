@@ -666,6 +666,26 @@
     }
   }
 
+  // ---- Novedades de la versión ----
+  // Se enseñan una sola vez por versión, al abrir la app ya actualizada. Quien instala la app por
+  // primera vez (sin mediciones y sin marca) no las ve: no tiene nada anterior con lo que comparar.
+  var SEEN_KEY = 'oxi.novedades';
+
+  function mostrarNovedades() {
+    if (typeof NOVEDADES === 'undefined' || !NOVEDADES.length || typeof APP_VERSION === 'undefined') return;
+    var visto;
+    try { visto = localStorage.getItem(SEEN_KEY); } catch (e) { return; }
+    if (visto === APP_VERSION) return;
+    function marcar() { try { localStorage.setItem(SEEN_KEY, APP_VERSION); } catch (e) { /* se volverá a enseñar */ } }
+    if (visto === null && records.length === 0) { marcar(); return; }
+
+    $('nov-titulo').textContent = 'Novedades de la versión ' + APP_VERSION;
+    $('nov-lista').innerHTML = NOVEDADES.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('');
+    $('novedades').hidden = false;
+    $('nov-ok').focus();
+    $('nov-ok').onclick = function () { $('novedades').hidden = true; marcar(); };
+  }
+
   // ---- Arranque ----
   function init() {
     buildChoices('f-modo', MODOS, 'modo');
@@ -718,6 +738,7 @@
     $('btn-share').addEventListener('click', shareCsv);
 
     resetForm();
+    mostrarNovedades();
 
     $('version').textContent = 'v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?');
     registerServiceWorker();

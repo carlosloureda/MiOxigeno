@@ -198,6 +198,32 @@ button.secondary { background: transparent; color: var(--accent); }
 
 .version { margin-left: 8px; font-size: 0.8rem; font-weight: 400; color: var(--muted); }
 
+.novedades {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.novedades[hidden] { display: none; }
+.nov-caja {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
+}
+.nov-caja h2 { margin: 0 0 12px; font-size: 1.3rem; }
+.nov-caja ul { margin: 0 0 18px; padding-left: 22px; }
+.nov-caja li { margin-bottom: 10px; font-size: 1rem; }
+.nov-caja button { width: 100%; }
+
 .update-banner {
   position: fixed;
   left: 12px; right: 12px;
