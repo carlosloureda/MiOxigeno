@@ -117,7 +117,8 @@ button.secondary { background: transparent; color: var(--accent); }
 .msg { min-height: 1.4em; color: var(--muted); }
 .msg.ok { color: var(--spo2); font-weight: 700; }
 
-.filters { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+.filters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.filters select { padding: 10px 8px; font-size: 0.95rem; }
 
 .chart {
   background: var(--card);
@@ -150,6 +151,9 @@ button.secondary { background: transparent; color: var(--accent); }
 
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0; font-size: 0.85rem; color: var(--muted); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
+.legend .lg { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.legend .lg b { font-weight: 600; width: 100%; }
+.dot.ring { background: transparent; border: 3px solid; }
 
 .lectura .dot { width: 10px; height: 10px; margin-right: 5px; }
 .nw { white-space: nowrap; }
@@ -237,5 +241,5 @@ button.secondary { background: transparent; color: var(--accent); }
 .tabs button.active { color: var(--accent); box-shadow: inset 0 4px 0 var(--accent); }
 
 @media (min-width: 600px) {
-  .filters { grid-template-columns: repeat(3, 1fr); }
+  .filters { grid-template-columns: repeat(4, 1fr); }
 }
