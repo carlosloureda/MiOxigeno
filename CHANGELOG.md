@@ -3,7 +3,7 @@
 ## 1.2.0
 - Ahora cada medición lleva **modo** (Durmiendo, Tumbada, Sentada, De pie) y **sitio** (Cama, Sillón, WC, Transporte), en vez de una sola actividad. Se pueden combinar: "Tumbada en el sillón", "De pie en el WC"…
 - Las mediciones antiguas se convierten solas al abrir la app (Durmiendo → Durmiendo + Cama, Tumbada → Tumbada + Sillón, Sentada → Sentada + Sillón, WC → Sentada + WC, Transporte → Sentada + Transporte). Antes de convertir se guarda una copia interna (`oxi.v1.bak`).
-- Gráfica: nuevos periodos de 6 h y 12 h, y filtros por modo y sitio.
+- Gráfica: nuevos periodos de 6 h y 12 h, y filtros por modo y sitio. Se abre por defecto en 12 h (antes 7 días).
 - En la gráfica, el relleno del punto es el modo y el borde es el sitio, cada sitio con su forma (círculo, cuadrado, triángulo, rombo), para no depender solo del color.
 - Colores nuevos con más contraste y pensados para daltonismo, con paleta distinta en tema claro y oscuro. Las marcas de color son más grandes.
 - La nota es ahora un campo que crece mientras se escribe (hasta 4 líneas, luego hace scroll), admite hasta 500 caracteres (antes 120) y respeta los saltos de línea en la lista de Datos.
