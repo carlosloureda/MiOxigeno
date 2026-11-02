@@ -23,7 +23,7 @@ La versión se define **solo** en `version.js` (`APP_VERSION`); de ahí sale el 
 
 Para sacar una versión:
 1. Trabajar en la rama `dev`.
-2. Subir `APP_VERSION` en `version.js` y añadir la entrada en `CHANGELOG.md`.
+2. Subir `APP_VERSION` en `version.js`, reescribir `NOVEDADES` (el cuadro que ve la usuaria una vez al abrir la versión nueva) y añadir la entrada en `CHANGELOG.md`.
 3. Si cambia el formato de los datos: **migrar** (nunca cambiar la clave `oxi.v1` sin migración) y pedir antes un CSV de respaldo.
 4. Merge a `main`, etiqueta (`git tag vX.Y.Z`) y push (`git push origin main --tags`). Pages publica solo.
 
