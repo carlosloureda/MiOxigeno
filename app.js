@@ -2,8 +2,17 @@
   'use strict';
 
   // ---- Configuración (editable) ----
-  var ACTIVIDADES = ['Durmiendo', 'Tumbada', 'Sentada', 'WC', 'Transporte'];
+  var MODOS = ['Durmiendo', 'Tumbada', 'Sentada', 'De pie'];
+  var SITIOS = ['Cama', 'Sillón', 'WC', 'Transporte'];
   var FUENTES = ['Concentrador', 'Portátil', 'Bombona', 'Arturito'];
+  // Cómo se convierten las mediciones antiguas (que solo tenían "actividad") a modo + sitio.
+  var MIGRACION = {
+    Durmiendo: ['Durmiendo', 'Cama'],
+    Tumbada: ['Tumbada', 'Sillón'],
+    Sentada: ['Sentada', 'Sillón'],
+    WC: ['Sentada', 'WC'],
+    Transporte: ['Sentada', 'Transporte']
+  };
   var STORAGE_KEY = 'oxi.v1';
   var LIMITS = {
     spo2: { min: 50, max: 100 },
@@ -15,7 +24,8 @@
   var records = load();
   var editingId = null;
   var form = {
-    actividad: 'Sentada',
+    modo: 'Sentada',
+    sitio: 'Sillón',
     fuente: FUENTES[0],
     spo2: 94,
     pulso: 80,
@@ -29,10 +39,34 @@
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
       var data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data : [];
+      if (!Array.isArray(data)) return [];
+      return migrate(data, raw);
     } catch (e) {
       return [];
     }
+  }
+
+  // Mediciones antiguas (con "actividad") -> modo + sitio. Antes de escribir nada en disco se guarda
+  // una copia (solo la primera vez: nunca se pisa una copia anterior). Si la copia falla, se migra
+  // solo en memoria.
+  function migrate(data, raw) {
+    var old = data.filter(function (r) { return r.modo === undefined && r.actividad !== undefined; });
+    if (!old.length) return data;
+    var copiaOk = false;
+    try {
+      if (localStorage.getItem(STORAGE_KEY + '.bak') === null) localStorage.setItem(STORAGE_KEY + '.bak', raw);
+      copiaOk = true;
+    } catch (e) { /* sin copia no se escribe nada en disco */ }
+    old.forEach(function (r) {
+      var m = MIGRACION[r.actividad] || [r.actividad, ''];
+      r.modo = m[0];
+      r.sitio = m[1];
+      delete r.actividad;
+    });
+    if (copiaOk) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* se reintenta al arrancar */ }
+    }
+    return data;
   }
 
   function save() {
@@ -47,17 +81,25 @@
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
 
-  // Lo mismo, como texto HTML (para las tarjetas de lectura de la gráfica).
-  function actDotHtml(nombre) {
-    return '<i class="dot" style="background:' + (ACT_COL[nombre] || '#888780') + '"></i>';
+  // Color del modo (relleno) o del sitio (borde). Los mismos en botones, lista y gráfica.
+  function colorDe(tipo, nombre) {
+    return paleta()[tipo === 'sitio' ? 'sitio' : 'modo'][nombre] || '#888780';
   }
 
-  // Punto del color de la actividad (el mismo en botones, lista y leyenda de la gráfica).
-  function actDot(nombre) {
-    var d = document.createElement('i');
-    d.className = 'dot';
-    d.style.background = ACT_COL[nombre] || '#888780';
-    return d;
+  // Marca de color como texto HTML: círculo lleno para el modo, forma con borde para el sitio.
+  function dotHtml(tipo, nombre) {
+    var c = colorDe(tipo, nombre);
+    var g = tipo === 'sitio'
+      ? forma(SITIO_FORMA[nombre], 12, 12, 8, 'none', c, 3.5)
+      : '<circle cx="12" cy="12" r="9" fill="' + c + '"/>';
+    return '<svg class="dot" viewBox="0 0 24 24" aria-hidden="true">' + g + '</svg>';
+  }
+
+  // Lo mismo, como elemento (para botones).
+  function dotEl(tipo, nombre) {
+    var t = document.createElement('div');
+    t.innerHTML = dotHtml(tipo, nombre);
+    return t.firstChild;
   }
 
   function toLocalInput(date) {
@@ -119,7 +161,7 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.textContent = opt;
-      if (key === 'actividad') b.insertBefore(actDot(opt), b.firstChild);
+      if (key === 'modo' || key === 'sitio') b.insertBefore(dotEl(key, opt), b.firstChild);
       b.addEventListener('click', function () {
         form[key] = opt;
         paintChoices();
@@ -129,11 +171,18 @@
   }
 
   function paintChoices() {
-    [['f-actividad', 'actividad'], ['f-fuente', 'fuente']].forEach(function (p) {
+    [['f-modo', 'modo'], ['f-sitio', 'sitio'], ['f-fuente', 'fuente']].forEach(function (p) {
       $(p[0]).querySelectorAll('button').forEach(function (b) {
         b.setAttribute('aria-pressed', String(b.textContent === form[p[1]]));
       });
     });
+  }
+
+  // La nota crece con lo que se escribe (hasta el máximo que marca el CSS). Solo mide si está a la vista.
+  function ajustarNota() {
+    var t = $('f-nota');
+    t.style.height = 'auto';
+    if (t.scrollHeight) t.style.height = (t.scrollHeight + t.offsetHeight - t.clientHeight) + 'px';
   }
 
   function paintValues() {
@@ -146,7 +195,8 @@
     editingId = null;
     var last = sorted().pop();
     if (last) {
-      form.actividad = last.actividad;
+      form.modo = last.modo;
+      form.sitio = last.sitio;
       form.fuente = last.fuente;
       form.spo2 = last.spo2;
       form.pulso = last.pulso;
@@ -154,6 +204,7 @@
     }
     $('f-fecha').value = toLocalInput(new Date());
     $('f-nota').value = '';
+    ajustarNota();
     $('form-title').textContent = 'Nueva medición';
     $('btn-guardar').textContent = 'Guardar';
     $('btn-cancelar').hidden = true;
@@ -165,7 +216,8 @@
     var r = records.filter(function (x) { return x.id === id; })[0];
     if (!r) return;
     editingId = id;
-    form.actividad = r.actividad;
+    form.modo = r.modo;
+    form.sitio = r.sitio;
     form.fuente = r.fuente;
     form.spo2 = r.spo2;
     form.pulso = r.pulso;
@@ -178,6 +230,7 @@
     paintChoices();
     paintValues();
     showTab('anotar');
+    ajustarNota();
   }
 
   function submitForm() {
@@ -190,7 +243,8 @@
       timestamp: d.toISOString(),
       spo2: form.spo2,
       pulso: form.pulso,
-      actividad: form.actividad,
+      modo: form.modo,
+      sitio: form.sitio,
       flujo: form.flujo,
       fuente: form.fuente,
       nota: $('f-nota').value.trim()
@@ -225,8 +279,7 @@
       when.textContent = fmtDate(r.timestamp) + ' · ' + fmtTime(r.timestamp);
       var act = document.createElement('span');
       act.className = 'act';
-      act.textContent = r.actividad;
-      act.insertBefore(actDot(r.actividad), act.firstChild);
+      act.innerHTML = dotHtml('modo', r.modo) + esc(r.modo) + ' · ' + dotHtml('sitio', r.sitio) + esc(r.sitio);
       top.appendChild(when);
       top.appendChild(act);
 
@@ -269,7 +322,39 @@
   // ---- Gráfica (SVG propio, sin dependencias) ----
   // Dos vistas: básica (una gráfica de SpO2 y la última medición) y avanzada (SpO2, pulso y flujo
   // apiladas, con filtros y cursor compartido).
-  var ACT_COL = { Durmiendo: '#7F77DD', Tumbada: '#1D9E75', Sentada: '#888780', WC: '#D85A30', Transporte: '#BA7517' };
+  // El punto lleva el color del modo (relleno) y el del sitio (borde y forma).
+  // Paletas elegidas para que se distingan con daltonismo y con vista cansada: contraste >= 3 contra
+  // el fondo del tema y separación de color (ΔE >= 27) dentro de cada grupo con los tres tipos de daltonismo.
+  var PALETAS = {
+    claro: {
+      modo: { Durmiendo: '#332288', Tumbada: '#2C7BB6', Sentada: '#882255', 'De pie': '#D55E00' },
+      sitio: { Cama: '#7B3294', 'Sillón': '#CC79A7', WC: '#117733', Transporte: '#4D4D4D' }
+    },
+    oscuro: {
+      modo: { Durmiendo: '#0072B2', Tumbada: '#88CCEE', Sentada: '#CC6677', 'De pie': '#F0E442' },
+      sitio: { Cama: '#E69F00', 'Sillón': '#56B4E9', WC: '#DDCC77', Transporte: '#8E6C00' }
+    }
+  };
+  // Cada sitio, además de color, tiene su forma: así no se depende solo del color.
+  var SITIO_FORMA = { Cama: 'circulo', 'Sillón': 'cuadrado', WC: 'triangulo', Transporte: 'rombo' };
+  function paleta() {
+    return PALETAS[window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro'];
+  }
+
+  // Dibuja una forma SVG centrada en (x, y) de radio r.
+  function forma(f, x, y, r, fill, stroke, sw) {
+    var a = ' fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + sw + '" stroke-linejoin="round"';
+    if (f === 'cuadrado') {
+      return '<rect x="' + (x - r * 0.85) + '" y="' + (y - r * 0.85) + '" width="' + (r * 1.7) + '" height="' + (r * 1.7) + '" rx="1.5"' + a + '/>';
+    }
+    if (f === 'triangulo') {
+      return '<polygon points="' + x + ',' + (y - r) + ' ' + (x + r) + ',' + (y + r * 0.8) + ' ' + (x - r) + ',' + (y + r * 0.8) + '"' + a + '/>';
+    }
+    if (f === 'rombo') {
+      return '<polygon points="' + x + ',' + (y - r * 1.15) + ' ' + (x + r * 1.15) + ',' + y + ' ' + x + ',' + (y + r * 1.15) + ' ' + (x - r * 1.15) + ',' + y + '"' + a + '/>';
+    }
+    return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '"' + a + '/>';
+  }
   var METRICAS = {
     spo2: { nombre: 'SpO2', unidad: '%' },
     pulso: { nombre: 'Pulso', unidad: 'lpm' },
@@ -291,17 +376,18 @@
     });
   }
 
-  function pick(days, act, fue) {
+  function pick(days, modo, sitio, fue) {
     var since = days ? Date.now() - days * 86400000 : 0;
     return sorted().filter(function (r) {
       return new Date(r.timestamp).getTime() >= since &&
-        (!act || r.actividad === act) &&
+        (!modo || r.modo === modo) &&
+        (!sitio || r.sitio === sitio) &&
         (!fue || r.fuente === fue);
     });
   }
 
   function filtered() {
-    return pick(parseInt($('g-rango').value, 10), $('g-actividad').value, $('g-fuente').value);
+    return pick(parseFloat($('g-rango').value), $('g-modo').value, $('g-sitio').value, $('g-fuente').value);
   }
 
   function fmtVal(v, m) {
@@ -402,14 +488,15 @@
       s += '<path d="' + items.map(function (r, j) {
         return (j ? 'L' : 'M') + X(new Date(r.timestamp).getTime()) + ' ' + Y(r[m]);
       }).join(' ') + '" fill="none" stroke="' + cText + '" stroke-width="1.5" opacity="0.6"/>';
-      var rad = span <= 2 * 86400000 ? 5 : 4;
+      var rad = span <= 2 * 86400000 ? 8 : 7;
       items.forEach(function (r) {
         var x = X(new Date(r.timestamp).getTime());
         xs.push(x);
         ys.push(Y(r[m]));
-        // Aro del color del fondo: si dos puntos se solapan, se nota que hay dos.
-        s += '<circle cx="' + x + '" cy="' + Y(r[m]) + '" r="' + rad + '" fill="' + (byAct ? (ACT_COL[r.actividad] || '#888780') : cAcc) +
-          '" stroke="' + cCard + '" stroke-width="1.5"/>';
+        // Relleno = modo, borde grueso = sitio. Si dos puntos se solapan, se nota por el borde.
+        s += byAct
+          ? forma(SITIO_FORMA[r.sitio], x, Y(r[m]), rad, colorDe('modo', r.modo), colorDe('sitio', r.sitio), 3)
+          : forma('circulo', x, Y(r[m]), rad, cAcc, cCard, 3);
       });
     }
 
@@ -464,13 +551,15 @@
     });
   }
 
-  // Leyenda de colores de actividad (o la explicación de las barras, en periodos largos).
+  // Leyenda de colores: relleno = modo, borde = sitio (o la explicación de las barras, en periodos largos).
   function leyendaHtml(daily) {
-    return daily
-      ? '<span><i style="background:var(--accent);opacity:.5"></i>Barra: rango del día · punto: media</span>'
-      : ACTIVIDADES.map(function (a) {
-        return '<span><i style="background:' + (ACT_COL[a] || '#888780') + '"></i>' + esc(a) + '</span>';
-      }).join('');
+    if (daily) return '<span><i style="background:var(--accent);opacity:.5"></i>Barra: rango del día · punto: media</span>';
+    function grupo(titulo, tipo, lista) {
+      return '<div class="lg"><b>' + titulo + '</b>' + lista.map(function (n) {
+        return '<span>' + dotHtml(tipo, n) + esc(n) + '</span>';
+      }).join('') + '</div>';
+    }
+    return grupo('Relleno: modo', 'modo', MODOS) + grupo('Borde: sitio', 'sitio', SITIOS);
   }
 
   // Cuántas otras mediciones hay a la misma hora (mismo minuto) que la i. Función pura.
@@ -485,7 +574,7 @@
 
   // Vista de la gráfica: resumen arriba y SpO2, pulso y flujo apiladas, con los filtros de siempre.
   function renderChart() {
-    var data = filtered(), days = parseInt($('g-rango').value, 10);
+    var data = filtered(), days = parseFloat($('g-rango').value);
     var ro = $('a-lectura'), keys = ['spo2', 'pulso', 'flujo'];
     keys.forEach(function (k) { $('chart-a-' + k).innerHTML = ''; });
     $('a-leyenda').innerHTML = '';
@@ -530,7 +619,7 @@
         }));
       } else {
         var r = charts[0].ch.items[bi], otras = masALaMismaHora(charts[0].ch.items, bi);
-        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + actDotHtml(r.actividad) + esc(r.actividad) + ' · ' + esc(r.fuente) +
+        ro.innerHTML = trio(fmtDate(r.timestamp) + ' ' + fmtTime(r.timestamp) + ' · ' + dotHtml('modo', r.modo) + esc(r.modo) + ' · ' + dotHtml('sitio', r.sitio) + esc(r.sitio) + ' · ' + esc(r.fuente) +
           (otras ? ' · +' + otras + ' más a esa hora' : ''), charts.map(function (c) {
           return { n: METRICAS[c.k].nombre, v: fmtVal(r[c.k], c.k), sub: METRICAS[c.k].unidad };
         }));
@@ -545,10 +634,10 @@
   }
 
   function buildCsv() {
-    var rows = [['fecha', 'hora', 'spo2', 'pulso', 'actividad', 'flujo_l_min', 'fuente', 'nota']];
+    var rows = [['fecha', 'hora', 'spo2', 'pulso', 'modo', 'sitio', 'flujo_l_min', 'fuente', 'nota']];
     sorted().forEach(function (r) {
       rows.push([fmtDate(r.timestamp), fmtTime(r.timestamp), r.spo2, r.pulso,
-        r.actividad, fmtNum(r.flujo), r.fuente, r.nota || '']);
+        r.modo, r.sitio, fmtNum(r.flujo), r.fuente, r.nota || '']);
     });
     return '﻿' + rows.map(function (row) {
       return row.map(csvEscape).join(';');
@@ -586,11 +675,33 @@
     }
   }
 
+  // ---- Novedades de la versión ----
+  // Se enseñan una sola vez por versión, al abrir la app ya actualizada. Quien instala la app por
+  // primera vez (sin mediciones y sin marca) no las ve: no tiene nada anterior con lo que comparar.
+  var SEEN_KEY = 'oxi.novedades';
+
+  function mostrarNovedades() {
+    if (typeof NOVEDADES === 'undefined' || !NOVEDADES.length || typeof APP_VERSION === 'undefined') return;
+    var visto;
+    try { visto = localStorage.getItem(SEEN_KEY); } catch (e) { return; }
+    if (visto === APP_VERSION) return;
+    function marcar() { try { localStorage.setItem(SEEN_KEY, APP_VERSION); } catch (e) { /* se volverá a enseñar */ } }
+    if (visto === null && records.length === 0) { marcar(); return; }
+
+    $('nov-titulo').textContent = 'Novedades de la versión ' + APP_VERSION;
+    $('nov-lista').innerHTML = NOVEDADES.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('');
+    $('novedades').hidden = false;
+    $('nov-ok').focus();
+    $('nov-ok').onclick = function () { $('novedades').hidden = true; marcar(); };
+  }
+
   // ---- Arranque ----
   function init() {
-    buildChoices('f-actividad', ACTIVIDADES, 'actividad');
+    buildChoices('f-modo', MODOS, 'modo');
+    buildChoices('f-sitio', SITIOS, 'sitio');
     buildChoices('f-fuente', FUENTES, 'fuente');
-    fillSelect('g-actividad', ACTIVIDADES);
+    fillSelect('g-modo', MODOS);
+    fillSelect('g-sitio', SITIOS);
     fillSelect('g-fuente', FUENTES);
 
     document.querySelectorAll('.stepper').forEach(function (st) {
@@ -610,19 +721,34 @@
       b.addEventListener('click', function () { showTab(b.dataset.tab); });
     });
 
-    ['g-rango', 'g-actividad', 'g-fuente'].forEach(function (id) {
+    ['g-rango', 'g-modo', 'g-sitio', 'g-fuente'].forEach(function (id) {
       $(id).addEventListener('change', renderChart);
     });
+    // Si cambia el tema claro/oscuro con la app abierta, se repintan las marcas de color.
+    if (window.matchMedia) {
+      var mq = matchMedia('(prefers-color-scheme: dark)');
+      var alCambiarTema = function () {
+        buildChoices('f-modo', MODOS, 'modo');
+        buildChoices('f-sitio', SITIOS, 'sitio');
+        paintChoices();
+        if ($('tab-grafica').classList.contains('active')) renderChart();
+        if ($('tab-datos').classList.contains('active')) renderList();
+      };
+      if (mq.addEventListener) mq.addEventListener('change', alCambiarTema);
+      else if (mq.addListener) mq.addListener(alCambiarTema);
+    }
     window.addEventListener('resize', function () {
       if ($('tab-grafica').classList.contains('active')) renderChart();
     });
 
+    $('f-nota').addEventListener('input', ajustarNota);
     $('btn-guardar').addEventListener('click', submitForm);
     $('btn-cancelar').addEventListener('click', function () { resetForm(); showMsg('', false); });
     $('btn-csv').addEventListener('click', downloadCsv);
     $('btn-share').addEventListener('click', shareCsv);
 
     resetForm();
+    mostrarNovedades();
 
     $('version').textContent = 'v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?');
     registerServiceWorker();
@@ -641,6 +767,9 @@
 
     function offerUpdate(worker) {
       $('update-banner').hidden = false;
+      // Sin mediciones no hay nada que guardar: se oculta el botón de la copia.
+      $('btn-update-csv').hidden = records.length === 0;
+      $('btn-update-csv').onclick = downloadCsv;
       $('btn-update').onclick = function () {
         updateRequested = true;
         worker.postMessage('SKIP_WAITING');

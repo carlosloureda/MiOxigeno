@@ -51,7 +51,7 @@ h1 { font-size: 1.4rem; margin: 4px 0 16px; }
 .field { display: block; margin-bottom: 18px; }
 .field > span, .filters label { display: block; font-size: 0.9rem; color: var(--muted); margin-bottom: 6px; }
 
-input[type="text"], input[type="datetime-local"], select {
+input[type="text"], input[type="datetime-local"], select, textarea {
   width: 100%;
   font: inherit;
   padding: 12px;
@@ -60,6 +60,9 @@ input[type="text"], input[type="datetime-local"], select {
   background: var(--card);
   color: var(--text);
 }
+
+/* La nota crece al escribir (lo hace app.js) hasta 4 líneas; a partir de ahí hace scroll. */
+textarea { resize: none; overflow-y: auto; line-height: 1.35; max-height: calc(4 * 1.35em + 28px); }
 
 .choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .choices button {
@@ -70,6 +73,11 @@ input[type="text"], input[type="datetime-local"], select {
   background: var(--card);
   color: var(--text);
 }
+/* Punto de color en una columna fija y texto alineado a la izquierda: todos los textos empiezan en la misma x. */
+.choices button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0 14px; text-align: left; }
+.choices .dot { width: 26px; height: 26px; margin-right: 0; padding: 2px; border-radius: 8px; }
+/* En el botón seleccionado la marca va sobre una ficha blanca: se ve con cualquier color. */
+.choices button[aria-pressed="true"] .dot { background: #fff; }
 .choices button[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
@@ -117,7 +125,8 @@ button.secondary { background: transparent; color: var(--accent); }
 .msg { min-height: 1.4em; color: var(--muted); }
 .msg.ok { color: var(--spo2); font-weight: 700; }
 
-.filters { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+.filters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.filters select { padding: 10px 8px; font-size: 0.95rem; }
 
 .chart {
   background: var(--card);
@@ -150,8 +159,11 @@ button.secondary { background: transparent; color: var(--accent); }
 
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0; font-size: 0.85rem; color: var(--muted); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
+.legend .lg { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.legend .lg b { font-weight: 600; width: 100%; }
+.legend .dot { width: 20px; height: 20px; margin-right: 4px; vertical-align: -5px; }
 
-.lectura .dot { width: 10px; height: 10px; margin-right: 5px; }
+.lectura .dot { width: 16px; height: 16px; margin-right: 4px; vertical-align: -3px; }
 .nw { white-space: nowrap; }
 
 .lista { list-style: none; margin: 14px 0 0; padding: 0; }
@@ -165,16 +177,15 @@ button.secondary { background: transparent; color: var(--accent); }
 .lista .top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.85rem; color: var(--muted); }
 .dot {
   display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  margin-right: 8px;
-  vertical-align: -1px;
-  box-shadow: 0 0 0 2px var(--card);
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  vertical-align: -5px;
+  flex: none;
 }
 .lista .act { font-weight: 700; color: var(--text); }
 .lista .vals { font-size: 1.25rem; font-weight: 700; margin: 4px 0; }
-.lista .meta { font-size: 0.9rem; color: var(--muted); }
+.lista .meta { font-size: 0.9rem; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .lista .row-actions { display: flex; gap: 8px; margin-top: 8px; }
 .lista .row-actions button {
   font: inherit;
@@ -190,14 +201,39 @@ button.secondary { background: transparent; color: var(--accent); }
 
 .version { margin-left: 8px; font-size: 0.8rem; font-weight: 400; color: var(--muted); }
 
+.novedades {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.novedades[hidden] { display: none; }
+.nov-caja {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
+}
+.nov-caja h2 { margin: 0 0 12px; font-size: 1.3rem; }
+.nov-caja ul { margin: 0 0 18px; padding-left: 22px; }
+.nov-caja li { margin-bottom: 10px; font-size: 1rem; }
+.nov-caja button { width: 100%; }
+
 .update-banner {
   position: fixed;
   left: 12px; right: 12px;
   bottom: calc(76px + env(safe-area-inset-bottom));
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
   padding: 12px 16px;
   background: var(--accent);
   color: var(--accent-text);
@@ -206,6 +242,9 @@ button.secondary { background: transparent; color: var(--accent); }
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 .update-banner[hidden] { display: none; }
+.update-banner .ub-botones { display: flex; gap: 10px; }
+.update-banner .ub-botones button { flex: 1; }
+.update-banner .ub-botones button[hidden] { display: none; }
 .update-banner button {
   font: inherit;
   font-weight: 700;
@@ -237,5 +276,5 @@ button.secondary { background: transparent; color: var(--accent); }
 .tabs button.active { color: var(--accent); box-shadow: inset 0 4px 0 var(--accent); }
 
 @media (min-width: 600px) {
-  .filters { grid-template-columns: repeat(3, 1fr); }
+  .filters { grid-template-columns: repeat(4, 1fr); }
 }

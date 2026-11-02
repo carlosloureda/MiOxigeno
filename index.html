@@ -24,8 +24,13 @@
       </label>
 
       <div class="field">
-        <span>Actividad</span>
-        <div class="choices" id="f-actividad"></div>
+        <span>Modo</span>
+        <div class="choices" id="f-modo"></div>
+      </div>
+
+      <div class="field">
+        <span>Sitio</span>
+        <div class="choices" id="f-sitio"></div>
       </div>
 
       <div class="field">
@@ -62,7 +67,7 @@
 
       <label class="field">
         <span>Nota (opcional)</span>
-        <input type="text" id="f-nota" maxlength="120" autocomplete="off">
+        <textarea id="f-nota" rows="1" maxlength="500" autocomplete="off"></textarea>
       </label>
 
       <div class="actions">
@@ -78,14 +83,19 @@
       <div class="filters">
         <label>Periodo
           <select id="g-rango">
+            <option value="0.25">Últimas 6 h</option>
+            <option value="0.5" selected>Últimas 12 h</option>
             <option value="1">Últimas 24 h</option>
-            <option value="7" selected>Últimos 7 días</option>
+            <option value="7">Últimos 7 días</option>
             <option value="30">Últimos 30 días</option>
             <option value="0">Todo</option>
           </select>
         </label>
-        <label>Actividad
-          <select id="g-actividad"><option value="">Todas</option></select>
+        <label>Modo
+          <select id="g-modo"><option value="">Todos</option></select>
+        </label>
+        <label>Sitio
+          <select id="g-sitio"><option value="">Todos</option></select>
         </label>
         <label>Fuente
           <select id="g-fuente"><option value="">Todas</option></select>
@@ -116,9 +126,20 @@
     </section>
   </main>
 
+  <div id="novedades" class="novedades" role="dialog" aria-modal="true" aria-labelledby="nov-titulo" hidden>
+    <div class="nov-caja">
+      <h2 id="nov-titulo"></h2>
+      <ul id="nov-lista"></ul>
+      <button type="button" id="nov-ok" class="primary">Entendido</button>
+    </div>
+  </div>
+
   <div id="update-banner" class="update-banner" role="alert" hidden>
-    <span>Hay una versión nueva.</span>
-    <button type="button" id="btn-update">Actualizar</button>
+    <span class="ub-texto">Hay una versión nueva. Antes de actualizar, se recomienda guardar una copia de tus datos.</span>
+    <div class="ub-botones">
+      <button type="button" id="btn-update-csv">Guardar copia (CSV)</button>
+      <button type="button" id="btn-update">Actualizar</button>
+    </div>
   </div>
 
   <nav class="tabs" role="tablist">
